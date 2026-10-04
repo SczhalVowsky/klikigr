@@ -1,0 +1,537 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<title>Indogrosir Ice Cream Promo</title>
+<style>
+  @font-face { font-family: 'Lilita'; src: url(fonts/lilita.woff2) format('woff2'); }
+  @font-face { font-family: 'Fredoka'; src: url(fonts/fredoka-700.woff2) format('woff2'); font-weight: 700; }
+  @font-face { font-family: 'Fredoka'; src: url(fonts/fredoka-500.woff2) format('woff2'); font-weight: 500; }
+  html, body { margin: 0; padding: 0; background: #000; }
+  #stage { position: relative; width: 1080px; height: 1920px; overflow: hidden; background: #2f8bff; }
+  #bg, #rays, #fx, #flash, .scene, #wipe { position: absolute; inset: 0; }
+  #rays {
+    left: -900px; top: -500px; width: 2880px; height: 2880px; inset: auto;
+    background: repeating-conic-gradient(from 0deg, rgba(255,255,255,.16) 0deg 9deg, rgba(255,255,255,0) 9deg 22.5deg);
+    border-radius: 50%;
+    -webkit-mask-image: radial-gradient(circle, #000 0%, rgba(0,0,0,.6) 35%, transparent 70%);
+  }
+  .scene { display: none; transform-origin: 50% 45%; }
+  .a { position: absolute; transform: translate(-50%, -50%); will-change: transform; }
+  .t {
+    font-family: 'Lilita', 'Fredoka', sans-serif; line-height: 1; white-space: nowrap; text-align: center;
+    color: var(--f, #fff); -webkit-text-stroke: var(--sw, 18px) var(--sc, #e2264d); paint-order: stroke fill;
+    filter: drop-shadow(0 12px 0 rgba(0,0,0,.2));
+  }
+  .pill {
+    font-family: 'Fredoka', sans-serif; font-weight: 700; white-space: nowrap;
+    padding: 14px 34px; border-radius: 999px; background: var(--bg, #fff); color: var(--fg, #1b3fa8);
+    box-shadow: 0 8px 0 rgba(0,0,0,.18); border: 5px solid var(--bd, #fff);
+  }
+  .card img { display: block; width: 100%; border: 10px solid #fff; border-radius: 30px; box-shadow: 0 26px 50px rgba(0,0,0,.32); box-sizing: border-box; }
+  .chip img { display: block; width: 100%; border-radius: 22px; box-shadow: 0 10px 24px rgba(0,0,0,.25); }
+  .price {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: #fff; border-radius: 44px; padding: 18px 56px 22px; border: 8px solid #ffd23f;
+    box-shadow: 0 14px 0 rgba(0,0,0,.2);
+  }
+  .price .pre { font-family: 'Fredoka'; font-weight: 700; font-size: 50px; color: #1b3fa8; white-space: nowrap; }
+  .price .amt { font-family: 'Lilita'; font-size: 132px; line-height: .95; color: #e8173b; white-space: nowrap; }
+  .burst {
+    display: flex; align-items: center; justify-content: center; text-align: center;
+    font-family: 'Lilita'; line-height: .95; color: #fff;
+    filter: drop-shadow(0 10px 0 rgba(0,0,0,.2));
+  }
+  .ice {
+    background: linear-gradient(135deg, rgba(255,255,255,.95), rgba(180,228,255,.5));
+    border: 4px solid rgba(255,255,255,.95); border-radius: 22%;
+    box-shadow: inset -10px -10px 18px rgba(110,180,255,.55), 0 10px 24px rgba(0,60,140,.18);
+  }
+  .spark { background: #fff; clip-path: polygon(50% 0, 60% 40%, 100% 50%, 60% 60%, 50% 100%, 40% 60%, 0 50%, 40% 40%); }
+  .ball { border-radius: 50%; }
+  #flash { background: #fff; opacity: 0; pointer-events: none; }
+  #wipe { pointer-events: none; }
+  .band { position: absolute; left: -2460px; width: 6000px; height: 720px; }
+  .emoji { font-family: 'Noto Color Emoji', sans-serif; line-height: 1; }
+  .line { font-family: 'Fredoka'; font-weight: 700; color: #fff; text-align: center; white-space: nowrap; text-shadow: 0 5px 0 rgba(0,0,0,.25); }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="bg"></div>
+  <div id="rays"></div>
+  <div id="fx"></div>
+  <div id="scenes"></div>
+  <div id="flash"></div>
+  <div id="wipe"></div>
+</div>
+<script>
+// ---------------------------------------------------------------- helpers
+const clamp = (v, a = 0, b = 1) => Math.min(b, Math.max(a, v));
+const lerp = (a, b, p) => a + (b - a) * p;
+const outBack = (p, k = 1.9) => 1 + (k + 1) * Math.pow(p - 1, 3) + k * Math.pow(p - 1, 2);
+const outCubic = p => 1 - Math.pow(1 - p, 3);
+const inCubic = p => p * p * p;
+const inOut = p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+const outElastic = p => p <= 0 ? 0 : p >= 1 ? 1 : Math.pow(2, -10 * p) * Math.sin((p * 10 - .75) * (2 * Math.PI) / 3) + 1;
+const outBounce = p => {
+  const n = 7.5625, d = 2.75;
+  if (p < 1 / d) return n * p * p;
+  if (p < 2 / d) return n * (p -= 1.5 / d) * p + .75;
+  if (p < 2.5 / d) return n * (p -= 2.25 / d) * p + .9375;
+  return n * (p -= 2.625 / d) * p + .984375;
+};
+let seed = 12345;
+const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+
+const hex = h => [1, 3, 5].map(i => parseInt(h.substr(i, 2), 16));
+const mixc = (a, b, p) => { const A = hex(a), B = hex(b); return `rgb(${A.map((v, i) => Math.round(v + (B[i] - v) * p)).join(',')})`; };
+
+const $ = id => document.getElementById(id);
+function mk(parent, cls, html, x, y, css = '') {
+  const e = document.createElement('div');
+  e.className = 'a ' + cls;
+  e.innerHTML = html;
+  e.style.cssText = `left:${x}px;top:${y}px;` + css;
+  parent.appendChild(e);
+  return e;
+}
+const img = (src, w) => `<img src="assets/${src}.png" style="width:${w}px">`;
+function T(e, { x = 0, y = 0, s = 1, sx = 1, sy = 1, r = 0, o = 1 } = {}) {
+  e.style.transform = `translate(-50%,-50%) translate(${x}px,${y}px) rotate(${r}deg) scale(${s * sx},${s * sy})`;
+  e.style.opacity = o;
+}
+// starburst clip-path
+function starPoly(n = 22, inner = .84) {
+  const pts = [];
+  for (let i = 0; i < n * 2; i++) {
+    const a = Math.PI * i / n - Math.PI / 2, r = i % 2 ? inner * 50 : 50;
+    pts.push(`${(50 + r * Math.cos(a)).toFixed(2)}% ${(50 + r * Math.sin(a)).toFixed(2)}%`);
+  }
+  return `polygon(${pts.join(',')})`;
+}
+function burst(parent, x, y, d, color, html, fs) {
+  const e = mk(parent, 'burst', '', x, y, `width:${d}px;height:${d}px;`);
+  e.innerHTML = `<div style="position:absolute;inset:0;background:#fff;clip-path:${starPoly()}"></div>
+    <div style="position:absolute;inset:12px;background:${color};clip-path:${starPoly()}"></div>
+    <div style="position:relative;font-size:${fs}px;-webkit-text-stroke:10px rgba(0,0,0,.25);paint-order:stroke fill">${html}</div>`;
+  return e;
+}
+const title = (p, text, x, y, size, fill, stroke, sw = 18) =>
+  mk(p, 't', text, x, y, `font-size:${size}px;--f:${fill};--sc:${stroke};--sw:${sw}px;`);
+const pill = (p, text, x, y, size, bg, fg, bd = '#fff') =>
+  mk(p, 'pill', text, x, y, `font-size:${size}px;--bg:${bg};--fg:${fg};--bd:${bd};`);
+const price = (p, pre, amt, x, y) =>
+  mk(p, 'price', `<span class="pre">${pre}</span><span class="amt">${amt}</span>`, x, y);
+
+// ---- reusable animation verbs (lt = scene-local time) ----
+const prog = (lt, t0, d) => clamp((lt - t0) / d);
+function pop(e, lt, t0, extra = {}, d = .5, k = 2.2) {
+  const p = prog(lt, t0, d);
+  T(e, { ...extra, s: (p <= 0 ? 0 : outBack(p, k)) * (extra.s ?? 1), o: p > 0 ? (extra.o ?? 1) : 0 });
+}
+function slam(e, lt, t0, extra = {}) {
+  const p = prog(lt, t0, .2), q = prog(lt, t0 + .2, .3);
+  const s = p < 1 ? lerp(2.6, 1, inCubic(p)) : 1 + Math.sin(q * Math.PI * 3) * .06 * (1 - q);
+  const shake = p >= 1 && q < 1 ? Math.sin(q * 60) * 10 * (1 - q) : 0;
+  T(e, { ...extra, x: (extra.x || 0) + shake, s, o: lt < t0 ? 0 : clamp(p * 3) });
+}
+function slide(e, lt, t0, dx, dy, extra = {}, d = .6) {
+  const p = prog(lt, t0, d), q = p <= 0 ? 0 : outBack(p, 1.4);
+  T(e, { ...extra, x: (extra.x || 0) + dx * (1 - q), y: (extra.y || 0) + dy * (1 - q), o: p > 0 ? 1 : 0 });
+}
+const bob = (lt, amp = 10, sp = 2.4, ph = 0) => Math.sin(lt * sp + ph) * amp;
+
+// ---- particle fields ----
+function field(parent, n, build, { vy = 220, sway = 40, spin = 60, xs = [0, 1080], up = false } = {}) {
+  const items = [];
+  for (let i = 0; i < n; i++) {
+    const e = build(i);
+    e.classList.add('a');
+    parent.appendChild(e);
+    items.push({ e, x: lerp(xs[0], xs[1], rnd()), ph: rnd() * 2400, sp: lerp(.7, 1.3, rnd()),
+      sw: rnd() * 6.28, rs: (rnd() - .5) * 2 * spin, r0: rnd() * 360 });
+  }
+  return lt => items.forEach(it => {
+    let y = ((lt * vy * it.sp + it.ph) % 2400) - 240;
+    if (up) y = 1920 - y;
+    it.e.style.left = (it.x + Math.sin(lt * 1.6 + it.sw) * sway) + 'px';
+    it.e.style.top = y + 'px';
+    it.e.style.transform = `translate(-50%,-50%) rotate(${it.r0 + lt * it.rs}deg)`;
+  });
+}
+const div = (cls, css) => { const e = document.createElement('div'); e.className = cls; e.style.cssText = css; return e; };
+
+// ---------------------------------------------------------------- global FX
+const fx = $('fx');
+const iceField = field(fx, 9, () => { const s = 70 + rnd() * 90; return div('ice', `width:${s}px;height:${s}px;opacity:.75`); }, { vy: 90, up: true, sway: 30, spin: 40 });
+const sparks = [];
+for (let i = 0; i < 18; i++) {
+  const s = 26 + rnd() * 40;
+  const e = div('a spark', `width:${s}px;height:${s}px;left:${60 + rnd() * 960}px;top:${120 + rnd() * 1500}px`);
+  fx.appendChild(e); sparks.push({ e, ph: rnd() * 6.28, sp: 2 + rnd() * 3 });
+}
+const sparkField = t => sparks.forEach(s => { const v = Math.max(0, Math.sin(t * s.sp + s.ph)); T(s.e, { s: v, r: t * 90, o: v }); });
+
+// ---------------------------------------------------------------- scenes
+const root = $('scenes');
+const scenes = [];
+function scene(start, end, bg, build) {
+  const el = document.createElement('div');
+  el.className = 'scene';
+  root.appendChild(el);
+  const update = build(el);
+  scenes.push({ start, end, bg, el, update });
+}
+// bg: function(lt) -> [inner, outer]
+const cyc = (cols, period, blend = .35) => lt => {
+  const i = Math.min(cols.length - 1, Math.floor(lt / period));
+  const f = lt - i * period;
+  if (i < cols.length - 1 && f > period - blend) {
+    const p = inOut((f - (period - blend)) / blend);
+    return [mixc(cols[i][0], cols[i + 1][0], p), mixc(cols[i][1], cols[i + 1][1], p)];
+  }
+  return cols[i];
+};
+const fixed = c => () => c;
+
+// -- S1 HOOK 0-3
+scene(0, 3, fixed(['#5fe0ff', '#1557f0']), el => {
+  const shards = [];
+  for (let i = 0; i < 16; i++) {
+    const a = i / 16 * Math.PI * 2 + rnd() * .3, w = 120 + rnd() * 200, h = 140 + rnd() * 240;
+    const e = div('a', `left:540px;top:900px;width:${w}px;height:${h}px;background:linear-gradient(135deg,#fff,#bfe9ff);
+      clip-path:polygon(${rnd() * 40}% 0,100% ${rnd() * 50}%,${50 + rnd() * 50}% 100%,0 ${50 + rnd() * 50}%);`);
+    el.appendChild(e); shards.push({ e, a, d: 700 + rnd() * 700, r: (rnd() - .5) * 400 });
+  }
+  const ice = title(el, 'ICE', 540, 610, 300, '#ffffff', '#ff3d7f', 22);
+  const cream = title(el, 'CREAM', 540, 870, 300, '#ffe14d', '#e2264d', 22);
+  const day = title(el, 'DAY!', 540, 1130, 300, '#ffffff', '#1b3fa8', 22);
+  const cone = mk(el, 'emoji', '🍦', 880, 380, 'font-size:200px');
+  const flake = mk(el, 'emoji', '❄️', 190, 1330, 'font-size:150px');
+  const sub = pill(el, 'Promo Es Krim Spesial di INDOGROSIR', 540, 1380, 50, '#ffffff', '#1b3fa8', '#ffd23f');
+  return lt => {
+    shards.forEach(s => {
+      const p = outCubic(prog(lt, 0, .9));
+      T(s.e, { x: Math.cos(s.a) * s.d * p, y: Math.sin(s.a) * s.d * p, r: s.r * p, o: 1 - p, s: 1 + p * .3 });
+    });
+    pop(ice, lt, .15, { r: -4 + bob(lt, 2, 5), y: bob(lt, 6, 4) });
+    pop(cream, lt, .38, { r: 3 + bob(lt, 2, 5, 1), y: bob(lt, 6, 4, 1) });
+    pop(day, lt, .62, { r: -3 + bob(lt, 2, 5, 2), y: bob(lt, 6, 4, 2) });
+    pop(cone, lt, .95, { r: 14 + bob(lt, 8, 4) });
+    pop(flake, lt, 1.15, { r: lt * 40 });
+    pop(sub, lt, 1.4, { y: bob(lt, 5, 3) });
+    el.style.transform = `scale(${1 + inCubic(prog(lt, 2.75, .25)) * .18})`;
+  };
+});
+
+// -- S2 SUNDAY ONLY 3-6
+scene(3, 6, fixed(['#ffe45c', '#ff8a00']), el => {
+  const logo = mk(el, 'chip', img('logo_indogrosir', 780), 540, 420, 'background:#fff;padding:18px;border-radius:34px;box-shadow:0 16px 0 rgba(0,0,0,.15)');
+  const stamp = mk(el, 'pill', 'KHUSUS HARI MINGGU!', 540, 720,
+    'font-family:Lilita;font-weight:400;font-size:86px;--bg:#e8173b;--fg:#fff;--bd:#fff;padding:24px 50px;border-radius:40px;border-width:10px');
+  const date = pill(el, '4 OKTOBER 2026', 540, 900, 76, '#1b3fa8', '#fff', '#fff');
+  const cards = mk(el, 'chip', img('member_cards', 700), 540, 1150, '');
+  const txt = title(el, 'Berlaku untuk semua member', 540, 1350, 74, '#ffffff', '#1b3fa8', 14);
+  return lt => {
+    const p = prog(lt, .05, .7);
+    T(logo, { y: -700 * (1 - outBounce(p)), o: p > 0 ? 1 : 0 });
+    slam(stamp, lt, .55, { r: -5 });
+    pop(date, lt, .95, { y: bob(lt, 5, 3) });
+    const q = prog(lt, 1.2, .9);
+    T(cards, { sx: q <= 0 ? 0 : Math.cos((1 - outCubic(q)) * Math.PI * 2), s: q <= 0 ? 0 : lerp(.4, 1, outBack(clamp(q * 1.6))), r: bob(lt, 2, 2), o: q > 0 ? 1 : 0 });
+    pop(txt, lt, 1.6, { y: bob(lt, 4, 3, 1) });
+  };
+});
+
+// -- S3 MAGNUM 6-11
+const MAG = [['#ff8cc6', '#e5287a'], ['#ffc65c', '#ff7a00'], ['#a8eb6a', '#239a48']];
+scene(6, 11, cyc(MAG, 5 / 3), el => {
+  const logo = mk(el, 'chip', img('logo_walls', 220), 190, 255);
+  const tag = pill(el, '⏰ Khusus Minggu, 4 Okt 2026', 680, 255, 40, '#e8173b', '#fff');
+  const ttl = title(el, 'MAGNUM', 540, 400, 180, '#ffffff', '#4a1d0a', 20);
+  const ml = pill(el, '80 mL', 950, 470, 40, '#4a1d0a', '#ffd23f', '#ffd23f');
+  const card = mk(el, 'card', img('magnum', 760), 540, 815);
+  const flav = pill(el, 'Strawberry Panna', 540, 1105, 60, '#ffffff', '#e5287a', '#4a1d0a');
+  const b2 = title(el, 'BELI 2 BAYAR 1', 540, 1240, 120, '#ffe14d', '#e2264d', 18);
+  const pr = price(el, 'Cukup bayar', 'Rp24.000', 540, 1420);
+  const hemat = burst(el, 860, 1000, 280, '#e8173b', 'HEMAT<br><span style="font-size:96px">50%</span>', 56);
+  const names = ['Strawberry Panna', 'Mango Yoghurt', 'Matcha Crumble'], cols = ['#e5287a', '#ff7a00', '#239a48'];
+  return lt => {
+    pop(logo, lt, .05); pop(tag, lt, .15);
+    pop(ttl, lt, .25, { y: bob(lt, 5, 3) }); pop(ml, lt, .55, { r: 10 });
+    slide(card, lt, .3, 0, 900, { y: bob(lt, 10, 2.4), r: bob(lt, 1.5, 1.8) });
+    const i = Math.min(2, Math.floor(lt / (5 / 3)));
+    flav.textContent = names[i]; flav.style.setProperty('--fg', cols[i]);
+    const fi = lt - i * 5 / 3;
+    pop(flav, i ? fi + .7 : lt, .7, { y: 0 }, .4);
+    slam(b2, lt, 1.0);
+    pop(pr, lt, 1.35, { y: bob(lt, 4, 3, 2) });
+    pop(hemat, lt, 1.7, { r: -12 + lt * 25 * 0 + bob(lt, 6, 4), s: 1 + Math.max(0, Math.sin(lt * 6.28)) * .06 }, .5, 3);
+  };
+});
+
+// -- S4 AICE CRISPY BALLS 11-15
+scene(11, 15, fixed(['#42b4ff', '#1236c9']), el => {
+  const balls = field(el, 22, i => {
+    const s = 40 + rnd() * 60, choc = i % 3;
+    const g = choc === 0 ? '#fff4dc,#d9b98a' : choc === 1 ? '#c98a55,#5a2d14' : '#ffe3ef,#f39abf';
+    return div('ball', `width:${s}px;height:${s}px;background:radial-gradient(circle at 35% 30%,${g});box-shadow:0 8px 14px rgba(0,0,0,.25)`);
+  }, { vy: 420, sway: 25, spin: 120 });
+  const logo = mk(el, 'chip', img('logo_aice', 240), 190, 255);
+  const tag = pill(el, '⏰ Khusus Minggu, 4 Okt 2026', 680, 255, 40, '#e8173b', '#fff');
+  const ttl = title(el, 'CRISPY BALLS', 540, 420, 150, '#ffe14d', '#0d2a8a', 20);
+  const ml = pill(el, 'AICE · 65 mL', 540, 535, 44, '#fff', '#0d2a8a', '#ffe14d');
+  const card = mk(el, 'card', img('aice_crispy', 620), 540, 875);
+  const b2 = title(el, 'BELI 2 BAYAR 1', 540, 1250, 120, '#ffe14d', '#e2264d', 18);
+  const pr = price(el, 'Cukup bayar', 'Rp6.500', 540, 1430);
+  const hemat = burst(el, 860, 1060, 290, '#e8173b', 'HEMAT<br><span style="font-size:96px">50%</span>', 56);
+  return lt => {
+    balls(lt);
+    pop(logo, lt, .05); pop(tag, lt, .15);
+    pop(ttl, lt, .2, { y: bob(lt, 5, 3) }); pop(ml, lt, .45);
+    const p = prog(lt, .3, .8);
+    T(card, { s: p <= 0 ? 0 : outBack(p, 1.6), r: (1 - outCubic(p)) * -200 + bob(lt, 1.5, 2), y: bob(lt, 10, 2.4), o: p > 0 ? 1 : 0 });
+    slam(b2, lt, .95);
+    pop(pr, lt, 1.3, { y: bob(lt, 4, 3, 2) });
+    pop(hemat, lt, 1.6, { r: 10 + bob(lt, 6, 4), s: 1 + Math.max(0, Math.sin(lt * 6.28)) * .06 }, .5, 3);
+  };
+});
+
+// -- S5 MASIH ADA LAGI 15-17
+scene(15, 17, fixed(['#ffffff', '#7fd3ff']), el => {
+  const ttl = title(el, 'MASIH ADA LAGI!', 540, 400, 130, '#ffe14d', '#e2264d', 20);
+  const fire = mk(el, 'emoji', '🔥', 540, 560, 'font-size:130px');
+  const cal = mk(el, '', `<div style="width:540px;height:560px;background:#fff;border-radius:46px;box-shadow:0 22px 0 rgba(0,0,0,.15),0 30px 60px rgba(0,40,120,.25);overflow:hidden;border:8px solid #1b3fa8">
+      <div style="height:150px;background:#e8173b;color:#fff;font:400 78px Lilita;display:flex;align-items:center;justify-content:center">OKTOBER</div>
+      <div id="calnum" style="height:330px;display:flex;align-items:center;justify-content:center;font:400 290px Lilita;color:#1b3fa8">4</div>
+      <div style="text-align:center;font:700 50px Fredoka;color:#1b3fa8;margin-top:-26px">2026</div></div>`, 540, 990);
+  const num = cal.querySelector('#calnum');
+  const pr = pill(el, 'Promo berlaku 4 – 15 Oktober 2026', 540, 1390, 56, '#1b3fa8', '#fff', '#ffd23f');
+  return lt => {
+    pop(ttl, lt, .05, { r: -3 + bob(lt, 2, 6) });
+    pop(fire, lt, .3, { s: 1 + Math.sin(lt * 14) * .05 });
+    pop(cal, lt, .15, {}, .45);
+    // flip 4 -> 15 at .75s
+    const f = prog(lt, .7, .3);
+    num.textContent = f < .5 ? '4' : '15';
+    num.style.transform = `scaleY(${Math.abs(Math.cos(f * Math.PI))})`;
+    pop(pr, lt, 1.0, { y: bob(lt, 5, 3) });
+    el.style.transform = `scale(${1 + inCubic(prog(lt, 1.78, .22)) * .18})`;
+  };
+});
+
+// -- S6 HAKU MONAKA 17-21
+scene(17, 21, fixed(['#d9824f', '#4a1d0a']), el => {
+  const choc = field(el, 12, () => { const s = 50 + rnd() * 50; return div('', `width:${s}px;height:${s}px;border-radius:12px;background:linear-gradient(135deg,#8a4a24,#3a1606);box-shadow:inset 6px 6px 0 rgba(255,255,255,.18)`); }, { vy: 260, spin: 90 });
+  const straw = field(el, 6, () => div('emoji', 'font-size:90px;line-height:1')).bind(null);
+  el.querySelectorAll('.emoji').forEach(e => e.textContent = '🍓');
+  const tag1 = pill(el, 'Glico Wings', 230, 255, 40, '#fff', '#e8173b');
+  const tag2 = pill(el, 'Periode 4–15 Okt 2026', 760, 255, 40, '#1b3fa8', '#fff');
+  const ttl = title(el, 'HAKU MONAKA', 540, 420, 150, '#ffffff', '#8b1e2f', 20);
+  const sub = pill(el, 'Glico Wings · 100 ml', 540, 535, 42, '#ffe8c2', '#4a1d0a', '#fff');
+  sub.style.zIndex = 5;
+  const c1 = mk(el, 'card', img('haku_vanilla', 540), 320, 720);
+  const c2 = mk(el, 'card', img('haku_straw', 540), 765, 770);
+  const c3 = mk(el, 'card', img('haku_double', 600), 540, 1030);
+  const ln = mk(el, 'line', 'Vanilla · Strawberry · Double Crispy Choco', 540, 1235, 'font-size:40px');
+  const pr = price(el, 'Beli 2 hanya', 'Rp9.400', 490, 1405);
+  const mix = burst(el, 935, 1395, 230, '#ffb703', 'BISA<br>MIX!', 62);
+  return lt => {
+    choc(lt); straw(lt);
+    pop(tag1, lt, .05); pop(tag2, lt, .15);
+    pop(ttl, lt, .15, { y: bob(lt, 5, 3) }); pop(sub, lt, .4);
+    // fish "swim" in: wavy slide
+    const sw = (e, t0, dx, r) => { const p = prog(lt, t0, .7); T(e, { x: dx * (1 - outBack(p, 1.3)), y: Math.sin(p * 9) * 30 * (1 - p) + bob(lt, 8, 2.4, t0 * 5), r: r + bob(lt, 1.5, 2, t0 * 3), o: p > 0 ? 1 : 0 }); };
+    sw(c1, .3, -1100, -7); sw(c2, .5, 1100, 7); sw(c3, .7, -1100, -1);
+    pop(ln, lt, 1.1);
+    pop(pr, lt, 1.25, { y: bob(lt, 4, 3, 2) });
+    pop(mix, lt, 1.55, { r: 12 + bob(lt, 8, 4), s: 1 + Math.max(0, Math.sin(lt * 6.28)) * .07 }, .5, 3);
+  };
+});
+
+// -- S7 FROST BITE 21-25
+scene(21, 25, fixed(['#ffe46b', '#ff8f1c']), el => {
+  const chips = field(el, 16, i => {
+    if (i % 4 === 3) return div('emoji', 'font-size:70px;line-height:1');
+    const w = 90 + rnd() * 50;
+    return div('', `width:${w}px;height:${w * .72}px;border-radius:50% 46% 52% 44%;background:radial-gradient(circle at 40% 35%,#fff1b8,#f2b632);
+      box-shadow:inset 0 -8px 0 rgba(180,110,0,.25), 0 6px 12px rgba(0,0,0,.18);`);
+  }, { vy: 330, spin: 160 });
+  el.querySelectorAll('.emoji').forEach(e => e.textContent = '🥜');
+  const tag1 = pill(el, 'Glico Wings', 230, 255, 40, '#fff', '#e8173b');
+  const tag2 = pill(el, 'Periode 4–15 Okt 2026', 760, 255, 40, '#1b3fa8', '#fff');
+  const ttl = title(el, 'FROST BITE', 540, 415, 170, '#ffffff', '#1b3fa8', 22);
+  const a = mk(el, 'card', img('fb_choconut', 560), 320, 660);
+  const b = mk(el, 'card', img('fb_cookies', 560), 320, 900);
+  const c = mk(el, 'card', img('fb_potabee', 200), 740, 780);
+  const d = mk(el, 'card', img('fb_crunchy', 200), 955, 780);
+  const ln1 = mk(el, 'line', 'Choco Nut &amp; Cashew · Cookies &amp; Cream', 540, 1085, 'font-size:44px');
+  const ln2 = mk(el, 'line', 'Potabee · Crunchy Double Choco', 540, 1145, 'font-size:44px');
+  const pr = price(el, 'Beli 2 hanya', 'Rp9.200', 490, 1340);
+  const mix = burst(el, 935, 1330, 230, '#e8173b', 'BISA<br>MIX!', 62);
+  return lt => {
+    chips(lt);
+    pop(tag1, lt, .05); pop(tag2, lt, .15);
+    pop(ttl, lt, .15, { r: -2 + bob(lt, 2, 5), y: bob(lt, 5, 3) });
+    pop(a, lt, .35, { y: bob(lt, 6, 2.6), r: -2 });
+    pop(b, lt, .55, { y: bob(lt, 6, 2.6, 1), r: 2 });
+    pop(c, lt, .75, { y: bob(lt, 8, 2.6, 2), r: -4 });
+    pop(d, lt, .95, { y: bob(lt, 8, 2.6, 3), r: 4 });
+    pop(ln1, lt, 1.2); pop(ln2, lt, 1.3);
+    pop(pr, lt, 1.4, { y: bob(lt, 4, 3, 2) });
+    pop(mix, lt, 1.7, { r: -10 + bob(lt, 8, 4), s: 1 + Math.max(0, Math.sin(lt * 6.28)) * .07 }, .5, 3);
+  };
+});
+
+// -- S8 FEAST POP + SHAKY SHAKE 25-29
+scene(25, 29, fixed(['#ff7fb8', '#2f6bff']), el => {
+  const split = div('', 'position:absolute;inset:-200px;background:linear-gradient(160deg,rgba(255,79,154,.85) 0 46%,rgba(255,255,255,.9) 46% 48.5%,rgba(47,107,255,.85) 48.5% 100%)');
+  el.appendChild(split);
+  const cubes = field(el, 16, i => {
+    const s = 50 + rnd() * 45, c = ['#ffffff', '#ffc2da', '#6b3418', '#f6d28b'][i % 4];
+    return div('', `width:${s}px;height:${s}px;border-radius:14px;background:${c};box-shadow:inset -8px -8px 0 rgba(0,0,0,.12),0 8px 14px rgba(0,0,0,.2)`);
+  }, { vy: 380, spin: 140 });
+  const logo = mk(el, 'chip', img('logo_walls', 220), 190, 255);
+  const tag = pill(el, 'Periode 4–15 Okt 2026', 760, 255, 40, '#1b3fa8', '#fff');
+  const ttl = title(el, 'FEAST POP', 540, 400, 160, '#ffffff', '#e2264d', 20);
+  const ttl2 = title(el, '&amp; SHAKY SHAKE', 540, 530, 92, '#ffe14d', '#3a1606', 16);
+  const f1 = mk(el, 'card', img('fp_straw', 600), 345, 730);
+  const f2 = mk(el, 'card', img('fp_vanilla', 600), 345, 920);
+  const sh = mk(el, 'card', img('shaky', 320), 850, 825);
+  const ln1 = mk(el, 'line', 'Feast Pop Strawberry · Vanilla &amp; Caramel 64 ml', 540, 1125, 'font-size:38px');
+  const ln2 = mk(el, 'line', 'Paddle Pop Shaky Shake 150 ml', 540, 1180, 'font-size:38px');
+  const pr = price(el, 'Beli 2 hanya', 'Rp14.000', 480, 1380);
+  const mix = burst(el, 940, 1370, 230, '#ffb703', 'BISA<br>MIX!', 62);
+  return lt => {
+    split.style.transform = `translateX(${Math.sin(lt * 1.5) * 30}px)`;
+    cubes(lt);
+    pop(logo, lt, .05); pop(tag, lt, .15);
+    pop(ttl, lt, .15, { y: bob(lt, 5, 3) }); pop(ttl2, lt, .35);
+    slide(f1, lt, .35, -1000, 0, { r: -3, y: bob(lt, 6, 2.6) });
+    slide(f2, lt, .55, -1000, 0, { r: 2, y: bob(lt, 6, 2.6, 1) });
+    const p = prog(lt, .75, .5);
+    const shake = lt > 1.3 && lt < 2.3 ? Math.sin(lt * 50) * 6 : 0;
+    T(sh, { y: -1400 * (1 - outBounce(p)), r: shake, o: p > 0 ? 1 : 0 });
+    pop(ln1, lt, 1.15); pop(ln2, lt, 1.25);
+    pop(pr, lt, 1.35, { y: bob(lt, 4, 3, 2) });
+    pop(mix, lt, 1.65, { r: 10 + bob(lt, 8, 4), s: 1 + Math.max(0, Math.sin(lt * 6.28)) * .07 }, .5, 3);
+  };
+});
+
+// -- S9 AICE HISTERIA 29-33
+const HIS = [['#7cc0ff', '#1f5fd8'], ['#ffc2a8', '#ff7a6b'], ['#c2ec8a', '#4f9a2c']];
+scene(29, 33, cyc(HIS, 4 / 3), el => {
+  const snow = field(el, 26, () => { const s = 12 + rnd() * 22; return div('ball', `width:${s}px;height:${s}px;background:#fff;opacity:.9`); }, { vy: 160, sway: 50, spin: 0 });
+  const logo = mk(el, 'chip', img('logo_aice', 240), 190, 255);
+  const tag = pill(el, 'Periode 4–15 Okt 2026', 760, 255, 40, '#1b3fa8', '#fff');
+  const ttl = title(el, 'AICE HISTERIA', 540, 410, 140, '#ffe27a', '#0d2a8a', 20);
+  const card = mk(el, 'card', img('histeria', 700), 540, 810);
+  const chipsEl = ['Vanila', 'Peach', 'Matcha'].map((n, i) => pill(el, n, 250 + i * 245, 1205, 50, '#fff', ['#1f5fd8', '#ff6b5b', '#3f8a1f'][i]));
+  const ml = mk(el, 'line', 'Es Krim · 70 ml', 540, 1285, 'font-size:44px');
+  const pr = price(el, 'Beli 2 hanya', 'Rp15.000', 480, 1440);
+  const mix = burst(el, 940, 1430, 230, '#e8173b', 'BISA<br>MIX!', 62);
+  return lt => {
+    snow(lt);
+    pop(logo, lt, .05); pop(tag, lt, .15);
+    pop(ttl, lt, .15, { y: bob(lt, 5, 3) });
+    const p = prog(lt, .3, .7);
+    T(card, { y: 700 * (1 - outBack(p, 1.3)) + bob(lt, 10, 2.4), r: bob(lt, 1.5, 1.8), o: p > 0 ? 1 : 0 });
+    const cur = Math.min(2, Math.floor(lt / (4 / 3)));
+    chipsEl.forEach((c, i) => {
+      const on = i === cur;
+      pop(c, lt, .8 + i * .12, { s: on ? 1.15 : .95, y: on ? -8 : 0 });
+    });
+    chipsEl.forEach((c, i) => { c.style.color = i === cur ? '#fff' : ''; c.style.background = i === cur ? ['#1f5fd8', '#ff6b5b', '#3f8a1f'][i] : '#fff'; });
+    pop(ml, lt, 1.0);
+    pop(pr, lt, 1.2, { y: bob(lt, 4, 3, 2) });
+    pop(mix, lt, 1.5, { r: -12 + bob(lt, 8, 4), s: 1 + Math.max(0, Math.sin(lt * 6.28)) * .07 }, .5, 3);
+    el.style.transform = `scale(${1 + inCubic(prog(lt, 3.78, .22)) * .18})`;
+  };
+});
+
+// -- S10 CTA 33-40
+scene(33, 40, fixed(['#4f8dff', '#0b2f9e']), el => {
+  const conf = field(el, 34, i => {
+    const c = ['#ffd23f', '#ff3d6e', '#ffffff', '#5fe0ff', '#7ee081'][i % 5];
+    return div('', `width:${18 + rnd() * 14}px;height:${30 + rnd() * 20}px;background:${c};border-radius:4px`);
+  }, { vy: 300, sway: 60, spin: 300 });
+  const top = title(el, 'Yuk borong sekarang di', 540, 270, 92, '#ffffff', '#e2264d', 16);
+  const items = ['magnum', 'aice_crispy', 'haku_straw', 'fb_choconut', 'fb_crunchy', 'fp_straw', 'shaky', 'histeria'];
+  const orbit = items.map(n => mk(el, 'card', img(n, n === 'fb_crunchy' || n === 'shaky' ? 130 : 240), 540, 760));
+  const logo = mk(el, 'chip', img('logo_indogrosir', 640), 540, 760, 'background:#fff;padding:22px;border-radius:40px;box-shadow:0 18px 0 rgba(0,0,0,.2)');
+  const shine = div('', 'position:absolute;inset:0;border-radius:40px;background:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.9) 50%,transparent 65%);background-size:300% 100%;');
+  logo.style.overflow = 'hidden'; logo.appendChild(shine);
+  const mitra = title(el, 'Mitra Usaha Terpercaya', 540, 1230, 84, '#ffe14d', '#0b2f9e', 14);
+  const rib = mk(el, 'pill', 'Periode 4 – 15 Oktober 2026', 540, 1350,
+    'font-size:58px;--bg:#e8173b;--fg:#fff;--bd:#fff;border-radius:18px;padding:18px 44px');
+  const note = mk(el, 'line', '*Promo Ice Cream Day hanya 4 Oktober 2026', 540, 1450, 'font-size:36px;font-weight:500');
+  return lt => {
+    conf(lt);
+    pop(top, lt, .1, { y: bob(lt, 5, 3) });
+    pop(logo, lt, .25, { s: 1 + Math.max(0, Math.sin(lt * Math.PI * 2)) * .03 }, .6, 2.6);
+    shine.style.backgroundPosition = `${lerp(150, -50, prog(lt, 4.2, .9))}% 0`;
+    orbit.forEach((o, i) => {
+      const a = i / orbit.length * Math.PI * 2 + lt * .55 - Math.PI / 2;
+      const p = prog(lt, .4 + i * .08, .5);
+      const rr = lerp(0, 1, outBack(p, 1.5));
+      T(o, { x: Math.cos(a) * 410 * rr, y: Math.sin(a) * 330 * rr, s: (p <= 0 ? 0 : .5 + .5 * rr) * (Math.sin(a) > 0 ? 1 : .88), r: Math.cos(a) * 8, o: p > 0 ? 1 : 0 });
+      o.style.zIndex = Math.sin(a) > 0 ? 3 : 1;
+    });
+    logo.style.zIndex = 2;
+    pop(mitra, lt, 1.2, { y: bob(lt, 4, 3) });
+    pop(rib, lt, 1.5, { r: -2 });
+    pop(note, lt, 1.9);
+  };
+});
+
+// ---------------------------------------------------------------- transitions
+const WIPES = [6, 11, 15, 21, 25, 29];
+const FLASHES = [3, 17, 33];
+const wipe = $('wipe');
+const bands = ['#ffd23f', '#ff3d6e', '#2f6bff', '#ffffff'].map((c, i) =>
+  wipe.appendChild(div('band', `top:${-560 + i * 700}px;background:${c};`)));
+wipe.style.transform = 'rotate(-14deg)';
+function transitions(t) {
+  let any = false;
+  for (const tb of WIPES) {
+    if (Math.abs(t - tb) < .55) {
+      any = true;
+      bands.forEach((b, i) => {
+        const p = clamp((t - (tb - .4) - (i - 1.5) * .02) / .8);
+        b.style.transform = `translateX(${lerp(6200, -6200, inOut(p))}px)`;
+      });
+    }
+  }
+  wipe.style.display = any ? 'block' : 'none';
+  let f = 0;
+  for (const tb of FLASHES) if (t >= tb && t < tb + .4) f = 1 - (t - tb) / .4;
+  if (t < .25) f = Math.max(f, 1 - t / .25);
+  $('flash').style.opacity = f;
+}
+
+// ---------------------------------------------------------------- render
+const bgEl = $('bg'), rays = $('rays');
+window.render = function (t) {
+  let cur = scenes[0];
+  for (const s of scenes) {
+    const on = t >= s.start && t < s.end;
+    s.el.style.display = on ? 'block' : 'none';
+    if (on) cur = s;
+  }
+  if (t >= 40) cur = scenes[scenes.length - 1];
+  const lt = t - cur.start;
+  const [c1, c2] = cur.bg(lt);
+  bgEl.style.background = `radial-gradient(circle at 50% 42%, ${c1} 0%, ${c2} 78%)`;
+  rays.style.transform = `rotate(${t * 12}deg)`;
+  iceField(t);
+  sparkField(t);
+  cur.update(lt);
+  transitions(t);
+};
+window.ready = Promise.all([document.fonts.load('400 100px Lilita'), document.fonts.load('700 50px Fredoka'), document.fonts.load('500 50px Fredoka'),
+  ...[...document.images].map(i => i.complete ? 1 : new Promise(r => { i.onload = i.onerror = r; }))]).then(() => document.fonts.ready);
+window.render(0);
+</script>
+</body>
+</html>
