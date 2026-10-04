@@ -1,8 +1,8 @@
-# Video Promo Es Krim Indogrosir (Reels/TikTok)
+# Video Promo Es Krim Indogrosir Batam (Reels/TikTok)
 
 Video motion 9:16, 1080×1920, 30 fps, 40 detik. Hanya teks + musik (tanpa voice-over).
 
-Hasil: `build/indogrosir-icecream-promo.mp4`
+Hasil: `build/indogrosir-batam-icecream-promo.mp4`
 
 ## Build ulang
 

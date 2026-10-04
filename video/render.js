@@ -1,5 +1,5 @@
 // Render index.html frame-by-frame with Playwright and encode to MP4 via ffmpeg.
-//   node render.js                 -> build/indogrosir-icecream-promo.mp4
+//   node render.js                 -> build/indogrosir-batam-icecream-promo.mp4
 //   node render.js --stills 1,4.5  -> build/still-<t>.jpg
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
@@ -26,7 +26,7 @@ const FPS = 30, DUR = 40;
     return;
   }
 
-  const out = path.join(__dirname, 'build/indogrosir-icecream-promo.mp4');
+  const out = path.join(__dirname, 'build/indogrosir-batam-icecream-promo.mp4');
   const ff = spawn('ffmpeg', ['-y', '-v', 'error', '-f', 'image2pipe', '-framerate', String(FPS), '-c:v', 'mjpeg', '-i', '-',
     '-i', path.join(__dirname, 'build/music.wav'),
     '-c:v', 'libx264', '-preset', 'medium', '-crf', '18', '-pix_fmt', 'yuv420p', '-r', String(FPS),

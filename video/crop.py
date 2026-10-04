@@ -29,3 +29,13 @@ for im in ims:
     if x+im.width>W: x=0; y+=rowh+10; rowh=0
     sheet.paste(im,(x,y)); x+=im.width+10; rowh=max(rowh,im.height)
 sheet.crop((0,0,W,y+rowh)).save('/tmp/claude-0/-home-user-klikigr/37ab31d3-2efb-5cd9-9f1a-d244fb7493d4/scratchpad/sheet.jpg')
+
+# Paint out the poster's "HEMAT" badge corner that pokes into the Magnum crop
+# (poster x>=866, y>=603 -> crop coords), using the neutral backdrop grey.
+from PIL import ImageDraw, ImageFilter
+m = Image.open(f'{A}magnum.png').convert('RGB')
+x0, y0 = 866 - 440, 603 - 335
+ImageDraw.Draw(m).rectangle((x0, y0, m.width, m.height), fill=(216, 216, 217))
+edge = m.crop((x0 - 6, y0 - 6, m.width, m.height)).filter(ImageFilter.GaussianBlur(3))
+m.paste(edge.crop((6, 6, edge.width, edge.height)), (x0, y0))
+m.save(f'{A}magnum.png')
