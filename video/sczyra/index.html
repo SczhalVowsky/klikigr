@@ -55,7 +55,7 @@ function upscale(src, f) {
 }
 
 // ---------------------------------------------------------------- assets
-const NAMES = ['hero', 'idle', 'walk', 'run', 'attack', 'jump', 'front', 'side', 'back', 'side2',
+const NAMES = ['hero', 'idle', 'attack', 'jump', 'front', 'side', 'back', 'side2', 'rig_body', 'rig_thigh', 'rig_shin',
   'e_neutral', 'e_happy', 'e_wink', 'e_surprised'];
 const IMG = {};
 const UP = {};
@@ -179,10 +179,10 @@ function spriteRig(n) {
 
 let CAM = new DOMMatrix();
 // draw `name` through the warp shader. m maps source px -> world px (camera applied here).
-function warp(name, m, { rig, t = 0, alpha = 1, tint = null, op = 'source-over' } = {}) {
+function warp(name, m, { rig, t = 0, alpha = 1, tint = null, op = 'source-over', cam = CAM, target = ctx } = {}) {
   if (alpha <= 0.002) return;
   const img = IMG[name];
-  const full = CAM.multiply(m);
+  const full = cam.multiply(m);
   const scale = Math.hypot(full.a, full.b);
   const f = clamp(Math.ceil(scale - .15), 1, 6);
   gl.clearColor(0, 0, 0, 0); gl.clear(gl.COLOR_BUFFER_BIT);
@@ -202,11 +202,11 @@ function warp(name, m, { rig, t = 0, alpha = 1, tint = null, op = 'source-over' 
   gl.uniform4fv(U.uBreath, (rig && rig.breath) || [0, 0, 0, 1]);
   gl.uniform2fv(U.uSway, (rig && rig.sway) || [0, 0]);
   gl.drawArrays(gl.TRIANGLES, 0, 6);
-  ctx.save();
-  ctx.setTransform(1, 0, 0, 1, 0, 0);
-  ctx.globalCompositeOperation = op;
-  ctx.drawImage(glc, 0, 0);
-  ctx.restore();
+  target.save();
+  target.setTransform(1, 0, 0, 1, 0, 0);
+  target.globalCompositeOperation = op;
+  target.drawImage(glc, 0, 0);
+  target.restore();
 }
 // place source anchor (ax, ay) at world (x, y), scaled and rotated (deg) around that anchor
 const place = (x, y, sx, sy, rot, ax, ay) => new DOMMatrix().translate(x, y).rotate(rot || 0).scale(sx, sy).translate(-ax, -ay);
@@ -546,8 +546,8 @@ function sIntro(t) {
   CAM = new DOMMatrix();
 }
 
-// ---------------------------------------------------------------- scene 2 · close-up expressions (3.5 – 6.5)
-const EXPR = [[0, 'e_neutral'], [1.05, 'e_happy'], [1.95, 'e_wink']];
+// ---------------------------------------------------------------- scene 2 · close-up expressions (3.5 – 6)
+const EXPR = [[0, 'e_neutral'], [.85, 'e_happy'], [1.6, 'e_wink']];
 function sClose(t) {
   const u = t - 3.5;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -572,7 +572,7 @@ function sClose(t) {
 
   // portrait card
   const enter = ease.outCubic(seg(u, 0, .7));
-  const exit = ease.inCubic(seg(u, 2.6, 2.95));
+  const exit = ease.inCubic(seg(u, 2.12, 2.45));
   const sc = 4.1 * lerp(1.3, 1, enter) * lerp(1, .9, exit);
   const cx = 1180, cy = 540 + Math.sin(u * 2.1) * 7 + exit * 40;
   const cw = 152 * sc, ch = 148 * sc;
@@ -598,14 +598,14 @@ function sClose(t) {
 
   // happy sparkles
   for (let k = 0; k < 10; k++) {
-    const st = 1.05 + k * .08, age = u - st;
+    const st = .85 + k * .07, age = u - st;
     if (age < 0 || age > 1) continue;
     const ang = k * 2.4;
     const x = cx + Math.cos(ang) * (cw * .55 + age * 60), y = cy + Math.sin(ang) * (ch * .5) - age * 120;
     star4(x, y, 22 * (1 - age), age * 3, k % 2 ? '#ffe9a8' : '#ffffff', 1 - age);
   }
   // wink sparkle
-  const wk = u - 2.05;
+  const wk = u - 1.68;
   if (wk > 0 && wk < .9) {
     const p = ease.outBack(seg(wk, 0, .3), 3), x = cx + (138 - 76) * sc, y = cy + (62 - 74) * sc;
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -616,7 +616,7 @@ function sClose(t) {
   }
 
   // speech bubble
-  const lines = [[.45, 1.9, 'Halo, aku Sczyra!'], [2.0, 2.75, 'Ayo berpetualang!']];
+  const lines = [[.3, 1.52, 'Halo, aku Sczyra!'], [1.6, 2.3, 'Ayo berpetualang!']];
   for (const [a, b, txt] of lines) {
     if (u < a || u > b) continue;
     const pin = ease.outBack(seg(u, a, a + .3), 2.4), pout = seg(u, b - .15, b);
@@ -627,7 +627,7 @@ function sClose(t) {
     pixPanel(-330, -70, 660, 140, 10, '#ffffff', '#0d1438', 6);
     ctx.fillStyle = '#ffffff'; ctx.fillRect(300, -10, 40, 30); ctx.fillRect(330, 0, 30, 20); ctx.fillRect(355, 6, 20, 12);
     ctx.fillStyle = '#0d1438'; ctx.fillRect(375, 6, 6, 12); ctx.fillRect(355, 18, 20, 6); ctx.fillRect(330, 20, 25, 6);
-    const n = Math.floor(clamp((u - a - .1) / .5) * txt.length);
+    const n = Math.floor(clamp((u - a - .08) / .42) * txt.length);
     ctx.font = '700 58px Pixelify'; ctx.fillStyle = '#1a2a6c'; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
     const full = ctx.measureText(txt).width;
     ctx.textAlign = 'left';
@@ -636,38 +636,137 @@ function sClose(t) {
   }
 }
 
-// ---------------------------------------------------------------- scenes 3+4 · world: walk, run, fight (6.5 – 14)
-const T_WALK = 6.5, T_RUN = 8.3, T_RUN_FULL = 8.8, T_BRAKE = 10.1, T_STOP = 10.7;
-const T_ALERT = 11.0, T_CROUCH = 11.35, T_JUMP = 11.5, T_SLASH = 12.0, T_HIT = 12.2, T_LAND = 12.65;
+// ---------------------------------------------------------------- scenes 3+4 · world: walk, run, fight (6 – 13)
+const T_WALK = 6.0, T_RUN = 8.4, T_RUN_FULL = 8.9, T_BRAKE = 10.0, T_STOP = 10.5;
+const T_ALERT = 10.8, T_CROUCH = 11.1, T_JUMP = 11.25, T_SLASH = 11.75, T_HIT = 11.95, T_LAND = 12.4;
+const T_TURN = 13.0, T_FINAL = 17.0;
 const GROUND_Y = 935;
+const V_WALK = 300, V_RUN = 1100;   // ground speed, px/s
 function speed(t) {
-  if (t < T_WALK) return 0;
-  if (t < T_RUN) return 150;
-  if (t < T_RUN_FULL) return lerp(150, 1350, ease.sine(seg(t, T_RUN, T_RUN_FULL)));
-  if (t < T_BRAKE) return 1350;
-  return lerp(1350, 0, ease.outCubic(seg(t, T_BRAKE, T_STOP)));
+  if (t < T_RUN) return V_WALK;
+  if (t < T_RUN_FULL) return lerp(V_WALK, V_RUN, ease.sine(seg(t, T_RUN, T_RUN_FULL)));
+  if (t < T_BRAKE) return V_RUN;
+  return lerp(V_RUN, 0, ease.outCubic(seg(t, T_BRAKE, T_STOP)));
 }
-const XCACHE = [];
-function scrollX(t) { // integral of speed, cached on a 1/600 s grid
-  const dt = 1 / 600, n = Math.floor(Math.max(0, t - T_WALK) / dt);
-  if (!XCACHE.length) XCACHE.push(0);
-  while (XCACHE.length <= n + 1) { const k = XCACHE.length; XCACHE.push(XCACHE[k - 1] + speed(T_WALK + (k - .5) * dt) * dt); }
-  const f = (Math.max(0, t - T_WALK) - n * dt) / dt;
-  return lerp(XCACHE[n], XCACHE[n + 1], f);
+
+// ---- walk / run rig: right-facing side view cut into body + thigh + shin (shared 64x195 frame)
+const HIP = [47, 118], KNEE = [42, 158], HEEL = [31, 194], TOE = [52, 194];
+// A: hip swing (deg), s: stance fraction, kSt/kSw: knee bend in stance/swing, lean: torso (deg), arm: arm swing (px)
+const GAIT_WALK = { A: 20, s: .6, kSt: 8, kSw: 55, lean: 2, arm: 3.2 };
+const GAIT_RUN = { A: 31, s: .38, kSt: 20, kSw: 105, lean: 9, arm: 6.5 };
+const runMix = t => clamp((speed(t) - V_WALK) / (V_RUN - V_WALK));
+function gait(m) { const o = {}; for (const k in GAIT_WALK) o[k] = lerp(GAIT_WALK[k], GAIT_RUN[k], m); return o; }
+function rot2(v, deg) { const a = deg * DEG, c = Math.cos(a), s = Math.sin(a); return [v[0] * c - v[1] * s, v[0] * s + v[1] * c]; }
+// leg forward kinematics in source px relative to the hip. th > 0 swings the leg forward (to the right),
+// kb > 0 folds the shin back at the knee.
+function legPoints(th, kb) {
+  const k = rot2([KNEE[0] - HIP[0], KNEE[1] - HIP[1]], -th);
+  const f = p => { const v = rot2([p[0] - KNEE[0], p[1] - KNEE[1]], -th + kb); return [k[0] + v[0], k[1] + v[1]]; };
+  return { knee: k, heel: f(HEEL), toe: f(TOE) };
 }
+const stride = g => legPoints(g.A, 0).heel[0] - legPoints(-g.A, 0).heel[0];   // sole travel per stance (src px)
+// one leg's pose over the gait cycle: stance sweeps the hip angle linearly (planted foot moves at constant
+// speed = ground speed, so no sliding), swing brings it forward with a bent knee.
+function legPose(p, g) {
+  p = ((p % 1) + 1) % 1;
+  if (p < g.s) { const q = p / g.s; return { th: lerp(g.A, -g.A, q), kb: g.kSt * Math.sin(Math.PI * q) }; }
+  const q = (p - g.s) / (1 - g.s);
+  return { th: lerp(-g.A, g.A, ease.sine(q)), kb: g.kSw * Math.sin(Math.PI * Math.pow(q, .75)) };
+}
+// ground distance + gait phase, integrated on a 1/600 s grid. Cadence follows speed so feet stay planted.
+const INT = { d: [0], p: [0] }, INT_DT = 1 / 600, PHASE0 = .15;
+function integ(t) {
+  const x = Math.max(0, t - T_WALK), n = Math.floor(x / INT_DT);
+  while (INT.d.length <= n + 1) {
+    const k = INT.d.length, tm = T_WALK + (k - .5) * INT_DT, v = speed(tm), g = gait(runMix(tm));
+    INT.d.push(INT.d[k - 1] + v * INT_DT);
+    INT.p.push(INT.p[k - 1] + v * g.s / (stride(g) * S) * INT_DT);
+  }
+  const f = (x - n * INT_DT) / INT_DT;
+  return { dist: lerp(INT.d[n], INT.d[n + 1], f), phase: PHASE0 + lerp(INT.p[n], INT.p[n + 1], f) };
+}
+// Sczyra walks in from the left; once near 720 the camera follows and the world scrolls instead.
+const X0 = 120;
 function heroX(t) {
-  if (t < T_RUN) return lerp(-200, 720, ease.outCubic(seg(t, T_WALK, 7.9)));
-  if (t < T_BRAKE) return lerp(720, 800, ease.inOut(seg(t, T_RUN, 9.2)));
-  return lerp(800, 860, ease.outCubic(seg(t, T_BRAKE, T_STOP)));
+  const d = integ(t).dist, d1 = 420, cap = 600;
+  const x = X0 + (d < d1 ? d : d1 + (cap - d1) * (1 - Math.exp(-(d - d1) / (cap - d1))));
+  return x + 80 * ease.inOut(seg(t, T_RUN, 9.3)) + 60 * ease.outCubic(seg(t, T_BRAKE, T_STOP));
 }
+const scrollX = t => integ(t).dist - (heroX(t) - X0);
+// heel-strike times (near leg at whole phases, far leg at halves) for dust + footstep SFX
+let STEPS = [];
+function buildSteps() {
+  STEPS = [];
+  let prev = Math.floor(integ(T_WALK).phase * 2);
+  for (let t = T_WALK; t < T_BRAKE; t += 1 / 600) {
+    const c = Math.floor(integ(t).phase * 2);
+    if (c !== prev) { STEPS.push({ t, run: runMix(t) > .5 }); prev = c; }
+  }
+}
+
+const RIGC = canvas(900, 900), RX = RIGC.getContext('2d');
+const RIG_O = [450, 400];   // hip position inside RIGC
+const DARK = {};
+function darkCopy(src) {
+  const d = canvas(src.width, src.height), x = d.getContext('2d');
+  x.drawImage(src, 0, 0);
+  x.globalCompositeOperation = 'source-atop'; x.fillStyle = 'rgba(40,36,96,.24)'; x.fillRect(0, 0, d.width, d.height);
+  return d;
+}
+function drawLeg(th, kb, far) {
+  const ti = far ? DARK.thigh : up('rig_thigh', 3), si = far ? DARK.shin : up('rig_shin', 3);
+  RX.save();
+  RX.translate(RIG_O[0] - (far ? 4 : 0), RIG_O[1] - (far ? 2 : 0)); RX.scale(S, S);
+  RX.rotate(-th * DEG);
+  RX.drawImage(ti, -HIP[0], -HIP[1], 64, 195);
+  RX.translate(KNEE[0] - HIP[0], KNEE[1] - HIP[1]);
+  RX.rotate(kb * DEG);
+  RX.drawImage(si, -KNEE[0], -KNEE[1], 64, 195);
+  RX.restore();
+}
+function bodyRig(phase, m, g) {
+  return {
+    regions: [
+      R(0, 10, 34, 112, 6, 18, 108, 0, 1.6 + 2.5 * m, .4, 3 + 3 * m, .05, .6, 5, .1),        // hair streaming behind
+      R(0, 100, 34, 176, 6, 104, 172, 1, 1.5 + 3 * m, .5, 3.5 + 3 * m, .06, .6, 6, .1),      // hanging sleeve
+      R(14, 62, 46, 136, 4, 66, 130, 2 * Math.PI * phase + 1.5 * Math.PI, g.arm, 0, 0, 0),  // arm swings against near leg
+      R(36, 95, 62, 126, 4, 100, 124, 2, .8 + m, .3, 5, .08),                                // skirt hem
+    ],
+    breath: [1, 3, 20, 110], sway: [0, 0],
+  };
+}
+// draw the rigged walker with its hip at screen-x `x`; feet are solved onto groundY
+function walker(t, x, gy, { phase, m, legs = null, lean = null, ghosts = 0, alpha = 1 }) {
+  const g = gait(m);
+  const L = legs || [legPose(phase, g), legPose(phase + .5, g)];
+  RX.setTransform(1, 0, 0, 1, 0, 0); RX.clearRect(0, 0, RIGC.width, RIGC.height);
+  drawLeg(L[1].th, L[1].kb, true);
+  drawLeg(L[0].th, L[0].kb, false);
+  warp('rig_body', place(RIG_O[0], RIG_O[1], S, S, lean ?? g.lean, HIP[0], HIP[1]),
+    { rig: bodyRig(phase, m, g), t, cam: new DOMMatrix(), target: RX });
+  let low = -1e9;
+  for (const l of L) { const p = legPoints(l.th, l.kb); low = Math.max(low, p.heel[1], p.toe[1]); }
+  const lift = legs ? 0 : m * 24 * Math.pow(Math.max(0, Math.cos(4 * Math.PI * (phase - .44))), 3);
+  const hipY = gy - low * S - lift;
+  ctx.save();
+  ctx.setTransform(CAM);
+  for (let k = ghosts; k >= 1; k--) {
+    ctx.globalAlpha = alpha * .15 / k;
+    ctx.drawImage(RIGC, x - k * 62 - RIG_O[0], hipY - RIG_O[1]);
+  }
+  ctx.globalAlpha = alpha;
+  ctx.drawImage(RIGC, x - RIG_O[0], hipY - RIG_O[1]);
+  ctx.restore();
+}
+
 const SLIME_X = 1440;
 function slimeState(t) {
-  const hops = [[10.4, 10.78, 2200, 1780], [10.78, 11.12, 1780, SLIME_X]];
+  const hops = [[10.2, 10.55, 2200, 1780], [10.55, 10.88, 1780, SLIME_X]];
   for (const [a, b, x0, x1] of hops) if (t < b) {
     const p = seg(t, a, b);
     return { x: lerp(x0, x1, p), y: -Math.sin(Math.PI * p) * 150, sx: 1 - .12 * Math.sin(Math.PI * p), sy: 1 + .18 * Math.sin(Math.PI * p) };
   }
-  const land = seg(t, 11.12, 11.5), wob = Math.sin(land * Math.PI * 3) * (1 - land) * .2;
+  const land = seg(t, 10.88, 11.25), wob = Math.sin(land * Math.PI * 3) * (1 - land) * .2;
   const idle = Math.sin(t * 6) * .04;
   return { x: SLIME_X, y: 0, sx: 1 + wob - idle, sy: 1 - wob + idle };
 }
@@ -705,7 +804,7 @@ function sWorld(t) {
   // camera: shake on hit, slow push-in before the turnaround
   const sh = Math.pow(1 - seg(t, T_HIT, T_HIT + .45), 2) * (t >= T_HIT ? 22 : 0);
   const zx = heroX(t);
-  const z = lerp(1, 1.12, ease.inOut(seg(t, 13.2, 14)));
+  const z = lerp(1, 1.12, ease.inOut(seg(t, 12.45, T_TURN)));
   CAM = new DOMMatrix().translate(Math.sin(t * 91) * sh, Math.cos(t * 77) * sh)
     .translate(zx, 700).scale(z).translate(-zx, -700);
   ctx.setTransform(CAM);
@@ -718,7 +817,7 @@ function sWorld(t) {
   tile(GROUND, X, GROUND_Y - 12);
 
   // speed lines while running fast
-  const sp = speed(t) / 1350;
+  const sp = speed(t) / V_RUN;
   if (sp > .05) {
     const rl = rng(Math.floor(t * 30));
     ctx.save(); ctx.globalCompositeOperation = 'lighter';
@@ -729,43 +828,42 @@ function sWorld(t) {
     ctx.restore();
   }
 
-  // footstep dust (stays put on the ground while the world scrolls)
-  const stepHz = t < T_RUN ? 2.2 : 4.2;
-  for (let k = 1; k < 60; k++) {
-    const tk = t < T_RUN ? T_WALK + k / 2.2 : T_RUN + k / 4.2;
-    if (tk > T_BRAKE || tk > t) break;
-    if (t - tk > .6 || tk < 7.0) continue;
-    puff(heroX(tk) - 20 - (X - scrollX(tk)), GROUND_Y, t - tk, 0, 5, t < T_RUN ? .8 : 1.1);
+  // footstep dust: spawned at the heel where it struck, then left behind on the scrolling ground
+  for (const st of STEPS) {
+    if (st.t > t) break;
+    if (t - st.t > .6) continue;
+    const g = gait(runMix(st.t));
+    const heel = heroX(st.t) + legPoints(g.A, 0).heel[0] * S;
+    puff(heel - (X - scrollX(st.t)), GROUND_Y, t - st.t, 0, 5, st.run ? 1.15 : .75);
   }
 
   // ---- Sczyra
   const hx = heroX(t);
-  if (t < T_JUMP) {
-    if (t < T_RUN + .12) {
-      const ph = (t - T_WALK) * 2.2 * Math.PI;
-      const bob = -Math.abs(Math.sin(ph)) * 12, rot = Math.sin(ph) * 1.6;
-      const p = seg(t, T_RUN, T_RUN + .12);
-      spriteMix('walk', 'run', p, hx, GROUND_Y + bob, t, { rot });
-    } else if (t < T_BRAKE + .15) {
-      const ph = (t - T_RUN) * 4.2 * Math.PI;
-      const bob = -Math.abs(Math.sin(ph)) * 16, rot = 5 + Math.sin(ph) * 1.5;
-      for (let g = 3; g >= 1; g--)
-        sprite('run', hx - g * 70 * sp, GROUND_Y + bob, t - g * .03, { rot, alpha: .3 / g * sp, tint: [.35, .6, 1, .75], op: 'lighter' });
-      sprite('run', hx, GROUND_Y + bob, t, { rot });
-    } else {
-      // skid -> alert idle -> crouch
-      const skid = seg(t, T_BRAKE + .15, T_STOP + .2);
-      const rot = lerp(-9, 0, ease.outBack(skid, 2));
-      const cr = seg(t, T_CROUCH, T_JUMP);
-      const sy = 1 - .12 * ease.sine(cr), sx = 1 + .06 * ease.sine(cr);
-      const p = seg(t, T_BRAKE + .15, T_BRAKE + .3);
-      spriteMix('run', 'idle', p, hx, GROUND_Y, t, { rot, sx, sy });
-      puff(hx - 40, GROUND_Y, t - (T_BRAKE + .2), 0, 7, 1.4);
-      puff(hx + 20, GROUND_Y, t - (T_BRAKE + .4), 0, 6, 1.1);
-    }
+  const { phase } = integ(t);
+  const m = runMix(t);
+  const SKID = { near: { th: 27, kb: 6 }, far: { th: -20, kb: 36 } };
+  if (t < T_BRAKE) {
+    walker(t, hx, GROUND_Y, { phase, m, ghosts: m > .6 ? 2 : 0, alpha: 1 });
+  } else if (t < T_STOP + .1) {
+    // brake: blend the running legs into a planted skid lunge, torso leans back
+    const g = gait(m), b = ease.outCubic(seg(t, T_BRAKE, T_BRAKE + .16));
+    const run = [legPose(phase, g), legPose(phase + .5, g)];
+    const legs = [
+      { th: lerp(run[0].th, SKID.near.th, b), kb: lerp(run[0].kb, SKID.near.kb, b) },
+      { th: lerp(run[1].th, SKID.far.th, b), kb: lerp(run[1].kb, SKID.far.kb, b) }];
+    walker(t, hx, GROUND_Y, { phase, m, legs, lean: lerp(g.lean, -10, b) });
+    puff(hx + 40, GROUND_Y, t - (T_BRAKE + .05), 0, 7, 1.4);
+    puff(hx + 70, GROUND_Y, t - (T_BRAKE + .25), 0, 6, 1.1);
+  } else if (t < T_JUMP) {
+    // settle from the skid into the idle stance, then crouch for the jump
+    const p = ease.sine(seg(t, T_STOP + .1, T_STOP + .35));
+    const cr = seg(t, T_CROUCH, T_JUMP);
+    const sy = 1 - .12 * ease.sine(cr), sx = 1 + .06 * ease.sine(cr);
+    if (p < 1) walker(t, hx, GROUND_Y, { phase, m: 0, legs: [SKID.near, SKID.far], lean: lerp(-10, 0, p), alpha: 1 - p });
+    sprite('idle', hx - 12, GROUND_Y, t, { sx, sy, alpha: p });
   }
   // jump arc + attack
-  const JX0 = 860, JX1 = 1170, JH = 300;
+  const JX0 = heroX(T_JUMP) - 12, JX1 = 1160, JH = 300;
   let attackHand = null;
   if (t >= T_JUMP && t < T_LAND + .15) {
     const p = seg(t, T_JUMP, T_LAND);
@@ -868,11 +966,41 @@ function sWorld(t) {
   CAM = new DOMMatrix();
 }
 
-// ---------------------------------------------------------------- scene 5 · turnaround (14 – 17)
-const TURN = ['front', 'side', 'back', 'side2', 'front'];
-const LABEL = ['FRONT', 'SIDE', 'BACK', 'SIDE', 'FRONT'];
+// ---------------------------------------------------------------- scene 5 · turnaround (13 – 17)
+// A slow, continuous 360°: each 90° segment morphs one view into the next (width eases toward the
+// next silhouette while the images cross-fade), so it reads as one smooth rotation instead of flips.
+const VIEWS = ['front', 'side', 'back', 'side2'];
+const VIEW_LABEL = { front: 'FRONT', side: 'SIDE', back: 'BACK', side2: 'SIDE' };
+const ROT_A = .35, ROT_B = 3.75;          // rotation window inside the scene (s)
+// constant turning speed with soft acceleration / deceleration over the first / last 20 %
+function cruise(p, r = .2) {
+  const v = 1 / (1 - r);
+  if (p < r) return v * p * p / (2 * r);
+  if (p > 1 - r) return 1 - v * (1 - p) * (1 - p) / (2 * r);
+  return v * (p - r / 2);
+}
+const turnAngle = w => 360 * cruise(seg(w, ROT_A, ROT_B));
+let VIEW_INFO = {};
+function measureViews() {   // torso centre-line + width of each view, from its alpha
+  for (const n of VIEWS) {
+    const im = IMG[n], c = canvas(im.width, im.height), x = c.getContext('2d');
+    x.drawImage(im, 0, 0);
+    const d = x.getImageData(0, 0, im.width, im.height).data;
+    let sx = 0, cnt = 0, wsum = 0, rows = 0;
+    for (let y = Math.floor(im.height * .3); y < im.height * .6; y++) {
+      let lo = -1, hi = -1;
+      for (let i = 0; i < im.width; i++) if (d[(y * im.width + i) * 4 + 3] > 0) { if (lo < 0) lo = i; hi = i; sx += i; cnt++; }
+      if (lo >= 0) { wsum += hi - lo + 1; rows++; }
+    }
+    VIEW_INFO[n] = { cx: sx / cnt, w: wsum / rows };
+  }
+}
+function turnView(name, x, y, t, sxMul, alpha) {
+  const im = IMG[name], k = 3.3;
+  warp(name, place(x, y, k * sxMul, k, 0, VIEW_INFO[name].cx, im.height), { rig: spriteRig(name), t, alpha });
+}
 function sTurn(t) {
-  const w = t - 14;
+  const w = t - T_TURN;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   const g = ctx.createRadialGradient(960, 640, 40, 960, 640, 1150);
   g.addColorStop(0, '#2b4cad'); g.addColorStop(.45, '#14215e'); g.addColorStop(1, '#050820');
@@ -880,7 +1008,7 @@ function sTurn(t) {
   // light beams
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
   for (let i = 0; i < 6; i++) {
-    const x = 960 + (i - 2.5) * 260 + Math.sin(w * .8 + i) * 60;
+    const x = 960 + (i - 2.5) * 260 + Math.sin(w * .6 + i) * 60;
     const gb = ctx.createLinearGradient(0, 0, 0, H);
     gb.addColorStop(0, 'rgba(120,170,255,.16)'); gb.addColorStop(1, 'rgba(120,170,255,0)');
     ctx.fillStyle = gb;
@@ -890,15 +1018,16 @@ function sTurn(t) {
   // rising motes
   const rm = rng(4);
   for (let i = 0; i < 50; i++) {
-    const x = rm() * W, sp = 60 + rm() * 140, s = 3 + Math.floor(rm() * 3) * 2;
+    const x = rm() * W, sp = 50 + rm() * 110, s = 3 + Math.floor(rm() * 3) * 2;
     const y = ((rm() * H - sp * w) % H + H) % H;
     ctx.globalAlpha = .3 + .5 * rm(); ctx.fillStyle = rm() < .3 ? '#ffe9b0' : '#9fc0ff'; ctx.fillRect(x, y, s, s);
   }
   ctx.globalAlpha = 1;
-  // magic circle
+  // magic circle (turns with her)
+  const ang = turnAngle(w);
   const mc = ease.outBack(seg(w, .05, .6), 1.5);
   ctx.save();
-  ctx.translate(960, 905); ctx.scale(mc, mc * .3); ctx.rotate(w * .7);
+  ctx.translate(960, 905); ctx.scale(mc, mc * .3); ctx.rotate(w * .35 + ang * DEG * .5);
   ctx.globalCompositeOperation = 'lighter';
   ctx.shadowColor = '#4d8dff'; ctx.shadowBlur = 30;
   ctx.strokeStyle = 'rgba(120,180,255,.9)';
@@ -920,35 +1049,32 @@ function sTurn(t) {
   ctx.restore();
   glow(960, 905, 420, '80,140,255', .35 * mc);
 
-  // the spin: four quarter turns, pose swapped while edge-on
-  const T0 = .55, STEP = .47, DUR = .42;
-  let idx = 0, sx = 1, hop = 0;
-  for (let i = 0; i < 4; i++) {
-    const a = T0 + i * STEP;
-    if (w >= a + DUR) idx = i + 1;
-    else if (w >= a) {
-      const p = (w - a) / DUR;
-      if (p < .5) { idx = i; sx = Math.cos(p * Math.PI); } else { idx = i + 1; sx = -Math.cos(p * Math.PI); }
-      hop = Math.sin(p * Math.PI) * 34;
-      break;
-    }
+  // the rotation
+  const enter = ease.outCubic(seg(w, 0, .4));
+  const i = Math.floor(ang / 90) % 4, f = (ang % 90) / 90;
+  const A = VIEWS[i], B = VIEWS[(i + 1) % 4];
+  const wa = VIEW_INFO[A].w, wb = VIEW_INFO[B].w, fe = ease.sine(f);
+  const y = 905 - (1 - enter) * 30;
+  const bodyW = lerp(wa, wb, fe) * 3.3;
+  ctx.fillStyle = 'rgba(5,8,32,.5)'; ctx.beginPath(); ctx.ellipse(960, 905, bodyW * .75 + 40, 22, 0, 0, Math.PI * 2); ctx.fill();
+  const aA = 1 - ease.sine(clamp((f - .45) / .3)), aB = ease.sine(clamp((f - .25) / .3));
+  if (f === 0) turnView(A, 960, y, t, 1, enter);
+  else {
+    turnView(A, 960, y, t, lerp(1, wb / wa, fe), aA * enter);
+    turnView(B, 960, y, t, lerp(wa / wb, 1, fe), aB * enter);
   }
-  sx = Math.max(.04, sx);
-  const enter = ease.outCubic(seg(w, 0, .35));
-  ctx.fillStyle = 'rgba(5,8,32,.5)'; ctx.beginPath(); ctx.ellipse(960, 905, 150 * (1 - hop / 120), 22, 0, 0, Math.PI * 2); ctx.fill();
-  sprite(TURN[idx], 960, 905 - hop - (1 - enter) * 40, t, { scale: 3.3, sx, alpha: enter });
-  // orbiting sparkles (behind half dimmed)
+  // orbiting sparkles
   ctx.save(); ctx.globalCompositeOperation = 'lighter';
-  for (let i = 0; i < 14; i++) {
-    const a = w * 2.2 + i * Math.PI * 2 / 14, y = 900 - ((w * 120 + i * 47) % 600);
-    const x = 960 + Math.cos(a) * 230, s = 14 + 8 * Math.sin(a);
-    star4(x, y + Math.sin(a) * 40, s, a, Math.sin(a) > 0 ? '#ffffff' : '#7fa8ff', (Math.sin(a) > 0 ? .9 : .4) * enter);
+  for (let k = 0; k < 14; k++) {
+    const a = w * 1.4 + k * Math.PI * 2 / 14, yy = 900 - ((w * 90 + k * 47) % 600);
+    const x = 960 + Math.cos(a) * 240, s = 14 + 8 * Math.sin(a);
+    star4(x, yy + Math.sin(a) * 40, s, a, Math.sin(a) > 0 ? '#ffffff' : '#7fa8ff', (Math.sin(a) > 0 ? .9 : .4) * enter);
   }
   ctx.restore();
-  // labels
+  // labels: name of the view she is closest to, fading out mid-turn
   spacedText('TURNAROUND', 960, 110, 40, 12, '#9fc0ff', ease.outCubic(seg(w, .1, .5)));
-  const li = idx, lp = 1 - Math.abs(sx - 1) * 1.2;
-  spacedText(LABEL[li], 960, 1010, 46, 14, '#ffffff', clamp(lp) * enter);
+  const near = f < .5 ? A : B, la = clamp(Math.abs(f - .5) * 4 - .7);
+  spacedText(VIEW_LABEL[near], 960, 1010, 46, 14, '#ffffff', la * enter);
 }
 
 // ---------------------------------------------------------------- scene 6 · final card (17 – 20)
@@ -1023,8 +1149,8 @@ function sFinal(t) {
 
 // ---------------------------------------------------------------- transitions + frame
 function wipe(t) {
-  // pixel-block wipe: 3.5→6.5 close-up out, world in
-  const cover = seg(t, 6.12, 6.5), reveal = seg(t, 6.5, 6.88);
+  // pixel-block wipe: close-up out, world in (around 6.0)
+  const cover = seg(t, 5.62, 6.0), reveal = seg(t, 6.0, 6.38);
   if (cover <= 0 || reveal >= 1) return;
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.fillStyle = '#080c2a';
@@ -1032,11 +1158,11 @@ function wipe(t) {
   for (let j = 0; j < 9; j++) for (let i = 0; i < 16; i++) {
     const d = (i + j * .6) / 21;
     const c = ease.outCubic(clamp((cover - d * .6) / .4)), r = ease.inCubic(clamp((reveal - d * .6) / .4));
-    const s = B * (t < 6.5 ? c : 1 - r);
+    const s = B * (t < 6.0 ? c : 1 - r);
     if (s > .5) ctx.fillRect(i * B + (B - s) / 2, j * B + (B - s) / 2, s + .5, s + .5);
   }
 }
-const FLASHES = [[3.5, .22, .4, 1], [T_HIT, .02, .3, .55], [14.0, .2, .35, 1], [17.0, .22, .45, 1]];
+const FLASHES = [[3.5, .22, .4, 1], [T_HIT, .02, .3, .55], [T_TURN, .2, .35, 1], [T_FINAL, .22, .45, 1]];
 function flash(t) {
   let a = 0;
   for (const [c, rise, fall, k] of FLASHES) {
@@ -1046,13 +1172,28 @@ function flash(t) {
   if (a > 0) { ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.fillStyle = `rgba(235,243,255,${a})`; ctx.fillRect(0, 0, W, H); }
 }
 window.DURATION = 20;
+// key times for music.py (node render.js --events writes build/events.json)
+function events() {
+  const quarters = [];
+  for (let k = 1; k <= 4; k++) {   // when the turntable passes each 90°
+    let lo = ROT_A, hi = ROT_B;
+    for (let it = 0; it < 40; it++) { const mid = (lo + hi) / 2; if (turnAngle(mid) < k * 90 - 45) lo = mid; else hi = mid; }
+    quarters.push(+(T_TURN + lo).toFixed(3));
+  }
+  return {
+    steps: STEPS.map(s => ({ t: +s.t.toFixed(3), run: s.run })),
+    walk: T_WALK, run: T_RUN, brake: T_BRAKE, stop: T_STOP, hops: [10.2, 10.55], alert: T_ALERT, jump: T_JUMP,
+    slash: T_SLASH, hit: T_HIT, land: T_LAND, turn: T_TURN, turnRot: [T_TURN + ROT_A, T_TURN + ROT_B], quarters, final: T_FINAL,
+    happy: 3.5 + EXPR[1][0], wink: 3.5 + EXPR[2][0] + .08, wipe: 5.62,
+  };
+}
 window.render = t => {
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over'; ctx.shadowBlur = 0;
   if (t < 3.5) sIntro(t);
-  else if (t < 6.5) sClose(t);
-  else if (t < 14) sWorld(t);
-  else if (t < 17) sTurn(t);
+  else if (t < T_WALK) sClose(t);
+  else if (t < T_TURN) sWorld(t);
+  else if (t < T_FINAL) sTurn(t);
   else sFinal(t);
   ctx.setTransform(1, 0, 0, 1, 0, 0);
   ctx.globalAlpha = 1; ctx.globalCompositeOperation = 'source-over';
@@ -1071,6 +1212,10 @@ window.ready = (async () => {
     i.src = 'assets/cut/' + n + '.png';
   })));
   buildArt();
+  DARK.thigh = darkCopy(up('rig_thigh', 3)); DARK.shin = darkCopy(up('rig_shin', 3));
+  measureViews();
+  buildSteps();
+  window.EVENTS = events();
   window.render(0);
 })();
 </script>

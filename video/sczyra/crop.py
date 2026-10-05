@@ -76,6 +76,47 @@ for name, box in POSES.items():
     Image.fromarray(out).save(os.path.join(OUT, f'{name}.png'))
     print(f'{name:12s} {out.shape[1]}x{out.shape[0]}')
 
+# ---- walk rig from the right-facing side view: body (minus leg), thigh, shin+boot.
+# All three keep side2's 64x195 coordinate frame so index.html can use the same pivots:
+#   hip (47, 118)  knee (42, 158)  sole (40, 195)
+side = np.array(Image.open(os.path.join(OUT, 'side2.png')))
+h, w = side.shape[:2]
+yy, xx = np.mgrid[:h, :w]
+rgb_s = side[..., :3].astype(int)
+opaque = side[..., 3] > 0
+skin = (rgb_s[..., 0] > rgb_s[..., 2] + 12) & (rgb_s[..., 0] > 120)
+dark = rgb_s.mean(-1) < 90
+leg_zone = (yy >= 122) & (
+    ((xx >= 30) & (xx <= 58) & (yy < 166)) |       # thigh + knee
+    ((xx >= 27) & (xx <= 55) & (yy >= 166)))       # shin + boot
+# left edge of the thigh is shared with the skirt panel: only take skin + its dark outline there
+edge = (xx < 40) & (yy < 152)
+near_skin = nd.binary_dilation(skin, iterations=1)
+leg = opaque & leg_zone & (~edge | skin | (dark & near_skin))
+leg = nd.binary_closing(leg, iterations=1) & opaque
+lab, n = nd.label(leg)
+leg = lab == 1 + np.argmax(nd.sum(leg, lab, range(1, n + 1)))   # drop stray skin specks
+
+
+def layer(mask):
+    out = side.copy()
+    out[..., 3] = np.where(mask, 255, 0).astype(np.uint8)
+    return out
+
+
+KNEE_Y = 158
+thigh = layer(leg & (yy <= KNEE_Y + 3))
+# extend the thigh up under the skirt so a swinging leg never shows a gap at the hip
+top = 124
+row = thigh[top + 2].copy()
+for y in range(104, top + 2):
+    thigh[y] = np.where(row[:, 3:4] > 0, row, thigh[y])
+shin = layer(leg & (yy >= KNEE_Y - 3))
+body = layer(opaque & ~leg)
+for name, img in (('rig_body', body), ('rig_thigh', thigh), ('rig_shin', shin)):
+    Image.fromarray(img).save(os.path.join(OUT, f'{name}.png'))
+    print(f'{name:12s} {w}x{h}')
+
 rgb = Image.fromarray(sheet).convert('RGB')
 for name, (x, y) in PORTRAITS.items():
     rgb.crop((x, y, x + PORTRAIT_W, y + PORTRAIT_H)).save(os.path.join(OUT, f'{name}.png'))

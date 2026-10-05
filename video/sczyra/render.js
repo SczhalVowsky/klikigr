@@ -2,6 +2,7 @@
 //   node render.js                    -> build/sczyra-trailer.mp4
 //   node render.js --stills 1,4.5     -> build/still-<t>.jpg
 //   node render.js --fps 30           -> faster preview render
+//   node render.js --events           -> build/events.json (timing for music.py)
 const { chromium } = require('playwright');
 const { spawn } = require('child_process');
 const path = require('path');
@@ -21,6 +22,13 @@ const FPS = Number(arg('--fps', 60));
   const DUR = await page.evaluate(() => window.DURATION);
   const stage = await page.$('#stage');
 
+  if (process.argv.includes('--events')) {
+    const ev = await page.evaluate(() => window.EVENTS);
+    fs.writeFileSync(path.join(__dirname, 'build/events.json'), JSON.stringify(ev, null, 1));
+    console.log('wrote build/events.json', ev.steps.length, 'steps');
+    await browser.close();
+    return;
+  }
   const stills = arg('--stills');
   if (stills) {
     for (const t of stills.split(',').map(Number)) {
