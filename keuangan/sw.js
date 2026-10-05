@@ -1,6 +1,9 @@
 // Caches the app shell so it opens without internet. Bump VERSION after editing any file.
-const VERSION = 'keuangan-v1';
-const FILES = ['./', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png'];
+const VERSION = 'keuangan-v2';
+const FILES = [
+  './', 'index.html', 'manifest.webmanifest', 'icon.svg', 'icon-192.png', 'icon-512.png',
+  'shared.css', 'shared.js', 'budget/', 'networth/'
+];
 
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES)));

@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Net Worth</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .chart-box.trend { height: 220px; }
+  .chart-box.komposisi { height: 300px; }
+  td.sub { color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .04em; font-weight: 600; padding-top: 14px; }
+  .item-row { display: grid; grid-template-columns: 1fr 120px auto; gap: 8px; align-items: center; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Net Worth</h1>
+  <select id="bulan" aria-label="Pilih bulan untuk rincian"></select>
+</header>
+
+<nav class="subnav" aria-label="Halaman keuangan">
+  <a href="../">Laporan</a>
+  <a href="../budget/">Budget</a>
+  <a href="./" aria-current="page">Net Worth</a>
+</nav>
+
+<main>
+  <div id="pesan" hidden></div>
+
+  <section class="card" id="ringkasan" hidden>
+    <h2 id="r-judul">Net worth</h2>
+    <div class="summary">
+      <div class="stat big wide"><small id="r-label">Net worth</small><b id="r-nw">Rp 0</b></div>
+      <div class="stat wide"><small id="r-selisih-label">Selisih vs bulan lalu</small><b id="r-selisih">—</b></div>
+      <div class="stat"><small>Total aset</small><b class="in" id="r-aset">Rp 0</b></div>
+      <div class="stat"><small>Total kewajiban</small><b class="out" id="r-kewajiban">Rp 0</b></div>
+    </div>
+  </section>
+
+  <details class="card" id="atur">
+    <summary id="atur-judul">Tambah / ubah snapshot</summary>
+    <form id="form-nw" class="form-grid" novalidate>
+      <label class="field">Bulan <input type="month" id="f-bulan" required></label>
+      <p class="hint" id="f-info"></p>
+      <h3>Aset</h3>
+      <div id="f-aset" class="form-grid"></div>
+      <button type="button" class="link" data-tambah="aset">+ Tambah aset</button>
+      <h3>Kewajiban (utang)</h3>
+      <div id="f-kewajiban" class="form-grid"></div>
+      <button type="button" class="link" data-tambah="kewajiban">+ Tambah kewajiban</button>
+      <p class="hint" id="f-total"></p>
+      <p class="form-error" id="f-error" hidden></p>
+      <div class="actions">
+        <button type="button" class="danger" id="f-hapus" hidden>Hapus snapshot</button>
+        <button type="submit">Simpan snapshot</button>
+      </div>
+    </form>
+    <datalist id="nama-aset"></datalist>
+    <datalist id="nama-kewajiban"></datalist>
+  </details>
+
+  <section class="card" id="kartu-tren" hidden>
+    <h2>Tren net worth</h2>
+    <div class="chart-box trend"><canvas id="grafik-tren" role="img" aria-label="Grafik garis tren net worth per bulan"></canvas></div>
+  </section>
+
+  <section class="card" id="kartu-komposisi" hidden>
+    <h2>Komposisi aset</h2>
+    <div class="chart-box komposisi"><canvas id="grafik-komposisi" role="img" aria-label="Grafik batang bertumpuk komposisi aset per bulan"></canvas></div>
+  </section>
+
+  <section class="card" id="kartu-rincian" hidden>
+    <h2 id="rincian-judul">Rincian</h2>
+    <table>
+      <thead><tr><th>Nama</th><th class="num">Nilai</th></tr></thead>
+      <tbody id="rincian"></tbody>
+    </table>
+    <div class="actions" style="margin-top:12px"><button type="button" class="ghost" id="edit-rincian">Ubah snapshot ini</button></div>
+  </section>
+
+  <p class="hint">Data tersimpan <b>di perangkat ini</b> dan ikut tersimpan saat Anda menekan <b>Backup data</b> di halaman Laporan.</p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="../shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+// Mid-tone colors that stay readable on both the light and dark background.
+const PALET = ['#14b8a6', '#3b82f6', '#f59e0b', '#8b5cf6', '#ec4899', '#84cc16', '#06b6d4', '#94a3b8'];
+const KARTU = ['ringkasan', 'kartu-tren', 'kartu-komposisi', 'kartu-rincian'];
+let snapshot = [];   // sorted oldest -> newest, with totals
+let charts = [];
+
+const jumlahkan = (daftar) => daftar.reduce((t, x) => t + x.nilai, 0);
+
+function muatSnapshot() {
+  snapshot = Keu.loadNetworth().map(s => {
+    const totalAset = jumlahkan(s.aset), totalKewajiban = jumlahkan(s.kewajiban);
+    return { ...s, totalAset, totalKewajiban, nw: totalAset - totalKewajiban };
+  });
+}
+
+// ---- Report ----
+function renderRingkasan() {
+  const akhir = snapshot.at(-1), sebelum = snapshot.at(-2);
+  $('r-judul').textContent = `Net worth · ${Keu.namaBulan(akhir.bulan)}`;
+  $('r-label').textContent = `Net worth ${Keu.namaBulan(akhir.bulan)}`;
+  $('r-nw').textContent = Keu.rupiah(akhir.nw);
+  $('r-nw').className = akhir.nw < 0 ? 'bad' : '';
+  $('r-aset').textContent = Keu.rupiah(akhir.totalAset);
+  $('r-kewajiban').textContent = Keu.rupiah(akhir.totalKewajiban);
+
+  if (!sebelum) {
+    $('r-selisih-label').textContent = 'Selisih vs bulan lalu';
+    $('r-selisih').textContent = 'Belum ada snapshot sebelumnya';
+    $('r-selisih').className = 'muted';
+    return;
+  }
+  const selisih = akhir.nw - sebelum.nw;
+  const pct = sebelum.nw !== 0 ? selisih / Math.abs(sebelum.nw) * 100 : null;
+  const tanda = selisih > 0 ? '+' : '';
+  $('r-selisih-label').textContent = `Selisih vs ${Keu.namaBulan(sebelum.bulan)}`;
+  $('r-selisih').textContent = `${tanda}${Keu.rupiah(selisih)}` + (pct === null ? '' : ` (${tanda}${Keu.persen(pct)})`);
+  $('r-selisih').className = selisih < 0 ? 'bad' : 'ok';
+}
+
+function renderGrafik() {
+  charts.forEach(c => c.destroy());
+  charts = [];
+  if (!Keu.chartTersedia()) {
+    document.querySelectorAll('.chart-box').forEach(box =>
+      box.innerHTML = '<p class="empty">Grafik tidak bisa dimuat. Buka halaman ini sekali saat online.</p>');
+    return;
+  }
+  Chart.defaults.color = Keu.cssVar('--muted');
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  const grid = { color: Keu.cssVar('--line') };
+  const labels = snapshot.map(s => Keu.namaBulan(s.bulan, true).split(' '));  // two-line label: month, year
+  const tooltipRupiah = { callbacks: { label: c => `${c.dataset.label}: ${Keu.rupiah(c.raw)}` } };
+
+  const brand = Keu.cssVar('--brand');
+  charts.push(new Chart($('grafik-tren'), {
+    type: 'line',
+    data: { labels, datasets: [{
+      label: 'Net worth', data: snapshot.map(s => s.nw), borderColor: brand, backgroundColor: brand,
+      borderWidth: 2, pointRadius: 3, tension: 0.25
+    }] },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: tooltipRupiah },
+      scales: { x: { grid: { display: false }, ticks: { maxRotation: 0 } }, y: { grid, ticks: { callback: v => Keu.rupiahSingkat(v), maxTicksLimit: 5 } } }
+    }
+  }));
+
+  // One dataset per asset name across all months; a month without that asset contributes 0.
+  const namaAset = [...new Set(snapshot.flatMap(s => s.aset.map(a => a.nama)))];
+  charts.push(new Chart($('grafik-komposisi'), {
+    type: 'bar',
+    data: { labels, datasets: namaAset.map((nama, i) => ({
+      label: nama,
+      data: snapshot.map(s => jumlahkan(s.aset.filter(a => a.nama === nama))),
+      backgroundColor: PALET[i % PALET.length]
+    })) },
+    options: {
+      maintainAspectRatio: false,
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10 } }, tooltip: { mode: 'index', ...tooltipRupiah } },
+      scales: {
+        x: { stacked: true, grid: { display: false }, ticks: { maxRotation: 0 } },
+        y: { stacked: true, grid, ticks: { callback: v => Keu.rupiahSingkat(v), maxTicksLimit: 5 } }
+      }
+    }
+  }));
+}
+
+function renderRincian() {
+  const s = snapshot.find(x => x.bulan === $('bulan').value);
+  if (!s) return;
+  $('rincian-judul').textContent = `Rincian ${Keu.namaBulan(s.bulan)}`;
+  const baris = (daftar) => daftar.length
+    ? daftar.map(x => `<tr><td>${Keu.escapeHtml(x.nama)}</td><td class="num">${Keu.rupiah(x.nilai)}</td></tr>`).join('')
+    : '<tr><td colspan="2" class="muted">Tidak ada</td></tr>';
+  $('rincian').innerHTML = `
+    <tr><td colspan="2" class="sub">Aset</td></tr>
+    ${baris(s.aset)}
+    <tr class="total"><td>Total aset</td><td class="num in">${Keu.rupiah(s.totalAset)}</td></tr>
+    <tr><td colspan="2" class="sub">Kewajiban</td></tr>
+    ${baris(s.kewajiban)}
+    <tr class="total"><td>Total kewajiban</td><td class="num out">${Keu.rupiah(s.totalKewajiban)}</td></tr>
+    <tr class="total"><td>Net worth</td><td class="num${s.nw < 0 ? ' bad' : ''}">${Keu.rupiah(s.nw)}</td></tr>`;
+}
+
+// ---- Snapshot form ----
+function tambahBaris(jenis, item = { nama: '', nilai: null }) {
+  $(`f-${jenis}`).insertAdjacentHTML('beforeend', `
+    <div class="item-row">
+      <input class="nama" list="nama-${jenis}" autocomplete="off" aria-label="Nama ${jenis}"
+        placeholder="${jenis === 'aset' ? 'Nama aset' : 'Nama utang'}" value="${Keu.escapeHtml(item.nama)}">
+      <input class="nilai" inputmode="numeric" autocomplete="off" aria-label="Nilai" placeholder="0" value="${Keu.tulisAngka(item.nilai)}">
+      <button type="button" class="icon hapus-baris" aria-label="Hapus baris">×</button>
+    </div>`);
+  Keu.inputAngka($(`f-${jenis}`).lastElementChild.querySelector('.nilai'));
+}
+
+function isiForm(bulan) {
+  $('f-bulan').value = bulan;
+  $('f-aset').innerHTML = '';
+  $('f-kewajiban').innerHTML = '';
+  $('f-error').hidden = true;
+  const ada = snapshot.find(s => s.bulan === bulan);
+  // A new month starts as a copy of the closest earlier snapshot, so only the values need updating.
+  const sumber = ada || [...snapshot].reverse().find(s => s.bulan < bulan) || snapshot.at(-1);
+  if (sumber) {
+    sumber.aset.forEach(x => tambahBaris('aset', x));
+    sumber.kewajiban.forEach(x => tambahBaris('kewajiban', x));
+  }
+  if (!$('f-aset').children.length) tambahBaris('aset');
+  if (!$('f-kewajiban').children.length) tambahBaris('kewajiban');
+  $('f-hapus').hidden = !ada;
+  $('f-info').textContent = ada ? `Mengubah snapshot ${Keu.namaBulan(bulan)}.`
+    : sumber ? `Snapshot baru. Isi awal disalin dari ${Keu.namaBulan(sumber.bulan)}, perbarui nilainya.`
+    : 'Snapshot baru. Isi semua aset (tabungan, e-wallet, investasi, kendaraan, dll.) dan utang Anda.';
+  hitungTotalForm();
+}
+
+function bacaForm() {
+  const hasil = { aset: [], kewajiban: [] };
+  for (const jenis of ['aset', 'kewajiban']) {
+    for (const row of $(`f-${jenis}`).children) {
+      const nama = row.querySelector('.nama').value.trim();
+      const nilai = Keu.bacaAngka(row.querySelector('.nilai').value);
+      if (!nama && nilai === null) continue;
+      if (!nama) throw new Error(`Ada ${jenis} bernilai ${Keu.rupiah(nilai)} tanpa nama.`);
+      if (nilai === null) throw new Error(`Nilai untuk "${nama}" belum diisi (isi 0 kalau memang nol).`);
+      hasil[jenis].push({ nama, nilai });
+    }
+  }
+  return hasil;
+}
+
+function hitungTotalForm() {
+  const total = (jenis) => [...$(`f-${jenis}`).querySelectorAll('.nilai')].reduce((t, i) => t + (Keu.bacaAngka(i.value) || 0), 0);
+  const aset = total('aset'), kewajiban = total('kewajiban');
+  $('f-total').innerHTML = `Aset ${Keu.rupiah(aset)} − Kewajiban ${Keu.rupiah(kewajiban)} = <b>${Keu.rupiah(aset - kewajiban)}</b>`;
+}
+
+function tampilError(teks) {
+  $('f-error').textContent = teks;
+  $('f-error').hidden = false;
+}
+
+$('f-bulan').addEventListener('change', () => { if (Keu.isBulan($('f-bulan').value)) isiForm($('f-bulan').value); });
+$('form-nw').addEventListener('input', hitungTotalForm);
+$('form-nw').addEventListener('click', e => {
+  if (e.target.dataset.tambah) tambahBaris(e.target.dataset.tambah);
+  if (e.target.classList.contains('hapus-baris')) { e.target.parentElement.remove(); hitungTotalForm(); }
+});
+
+$('form-nw').addEventListener('submit', e => {
+  e.preventDefault();
+  const bulan = $('f-bulan').value;
+  if (!Keu.isBulan(bulan)) return tampilError('Pilih bulan terlebih dahulu.');
+  let isi;
+  try { isi = bacaForm(); } catch (err) { return tampilError(err.message); }
+  if (!isi.aset.length && !isi.kewajiban.length) return tampilError('Isi minimal satu aset atau kewajiban.');
+  const lain = Keu.loadNetworth().filter(s => s.bulan !== bulan);
+  if (!Keu.saveNetworth([...lain, { bulan, ...isi }])) return;
+  $('atur').open = false;
+  muat(bulan);
+});
+
+$('f-hapus').addEventListener('click', () => {
+  const bulan = $('f-bulan').value;
+  if (!confirm(`Hapus snapshot ${Keu.namaBulan(bulan)}?`)) return;
+  if (!Keu.saveNetworth(Keu.loadNetworth().filter(s => s.bulan !== bulan))) return;
+  muat();
+});
+
+$('edit-rincian').addEventListener('click', () => {
+  isiForm($('bulan').value);
+  $('atur').open = true;
+  $('atur').scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+// ---- Page ----
+function muat(bulanTerpilih) {
+  muatSnapshot();
+  $('pesan').innerHTML = '';
+  $('pesan').hidden = true;
+  const namaDipakai = (jenis) => [...new Set(snapshot.flatMap(s => s[jenis].map(x => x.nama)))]
+    .map(n => `<option value="${Keu.escapeHtml(n)}">`).join('');
+  $('nama-aset').innerHTML = namaDipakai('aset');
+  $('nama-kewajiban').innerHTML = namaDipakai('kewajiban');
+
+  // The form starts on this month (or on the latest snapshot if one exists for a later month).
+  const terakhir = snapshot.at(-1)?.bulan;
+  isiForm(terakhir && terakhir > Keu.bulanIni() ? terakhir : Keu.bulanIni());
+
+  const ada = snapshot.length > 0;
+  KARTU.forEach(id => $(id).hidden = !ada);
+  $('bulan').hidden = !ada;
+  if (!ada) {
+    $('pesan').innerHTML = '<div class="notice">Belum ada snapshot net worth. Isi snapshot pertama Anda di bawah ini.</div>';
+    $('pesan').hidden = false;
+    $('atur').open = true;
+    return;
+  }
+  const daftar = snapshot.map(s => s.bulan);
+  Keu.isiDropdownBulan($('bulan'), daftar, daftar.includes(bulanTerpilih) ? bulanTerpilih : daftar.at(-1));
+  renderRingkasan();
+  renderGrafik();
+  renderRincian();
+}
+
+$('bulan').addEventListener('change', renderRincian);
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { if (snapshot.length) renderGrafik(); });
+muat();
+</script>
+</body>
+</html>

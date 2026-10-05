@@ -79,6 +79,13 @@
   .empty { color: var(--muted); text-align: center; padding: 8px 0; margin: 0; }
   .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .tools .full { grid-column: 1 / -1; }
+  .subnav { max-width: 560px; margin: 12px auto 0; padding: 0 16px; display: flex; gap: 8px; }
+  .subnav a {
+    flex: 1; text-align: center; padding: 8px 6px; border-radius: 10px; font-size: 14px;
+    color: var(--brand); text-decoration: none; border: 1px solid var(--line); background: var(--card);
+  }
+  .subnav a[aria-current=page] { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 600; }
+  @media (prefers-color-scheme: dark) { .subnav a[aria-current=page] { color: #04201d; } }
 </style>
 </head>
 <body>
@@ -86,6 +93,12 @@
   <h1>Keuangan Bulanan</h1>
   <input type="month" id="bulan" aria-label="Pilih bulan">
 </header>
+
+<nav class="subnav" aria-label="Halaman keuangan">
+  <a href="./" aria-current="page">Laporan</a>
+  <a href="budget/">Budget</a>
+  <a href="networth/">Net Worth</a>
+</nav>
 
 <main>
   <section class="card">
@@ -139,12 +152,10 @@
   </section>
 </main>
 
+<script src="shared.js"></script>
 <script>
 const KEY = 'keuangan-bulanan-v1';
-const KATEGORI = {
-  keluar: ['Makan & Minum', 'Belanja', 'Transportasi', 'Tagihan & Listrik', 'Pulsa & Internet', 'Kesehatan', 'Pendidikan', 'Hiburan', 'Cicilan', 'Lainnya'],
-  masuk: ['Gaji', 'Bonus', 'Usaha', 'Hadiah', 'Lainnya']
-};
+const KATEGORI = Keu.KATEGORI;   // shared with the Budget page
 
 const $ = (id) => document.getElementById(id);
 const rupiah = (n) => 'Rp' + Math.round(n).toLocaleString('id-ID');
@@ -259,8 +270,9 @@ $('csv').addEventListener('click', () => {
   unduh(`laporan-${$('bulan').value}.csv`, '﻿' + baris.join('\r\n'), 'text/csv');
 });
 
+// Backup includes transactions, budget and net worth snapshots.
 $('backup').addEventListener('click', () => {
-  unduh(`backup-keuangan-${today()}.json`, JSON.stringify(data, null, 2), 'application/json');
+  unduh(`backup-keuangan-${today()}.json`, JSON.stringify(Keu.buatBackup(data), null, 2), 'application/json');
 });
 
 $('restore').addEventListener('click', () => $('file').click());
@@ -268,11 +280,18 @@ $('file').addEventListener('change', async e => {
   const f = e.target.files[0];
   if (!f) return;
   try {
-    const isi = JSON.parse(await f.text());
-    if (!Array.isArray(isi)) throw new Error();
-    if (!confirm(`Ganti data sekarang dengan ${isi.length} transaksi dari backup?`)) return;
-    data = isi;
+    const isi = Keu.bacaBackup(JSON.parse(await f.text()));
+    const lama = isi.budget === null;
+    const pesan = lama
+      ? `Backup lama ini hanya berisi transaksi.\nGanti transaksi sekarang dengan ${isi.transaksi.length} transaksi dari backup?\n(Budget dan net worth tidak berubah.)`
+      : `Ganti SEMUA data sekarang dengan isi backup?\n• ${isi.transaksi.length} transaksi\n• ${Object.keys(isi.budget).length} bulan budget\n• ${isi.networth.length} snapshot net worth`;
+    if (!confirm(pesan)) return;
+    data = isi.transaksi;
     save();
+    if (!lama) {
+      Keu.saveBudget(isi.budget);
+      Keu.saveNetworth(isi.networth);
+    }
     render();
   } catch {
     alert('File backup tidak valid.');

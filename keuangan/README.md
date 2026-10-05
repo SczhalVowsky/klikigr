@@ -51,9 +51,48 @@ seperti aplikasi biasa. Tidak perlu Play Store, tidak perlu internet setelah dip
   di Google Drive atau WhatsApp ke diri sendiri.
 - Pindah HP? Backup di HP lama → kirim file-nya ke HP baru → **Pulihkan backup**.
 
+## Halaman Budget & Net Worth
+
+Dari halaman utama, gunakan tombol **Budget** dan **Net Worth** di bawah header.
+Semua data (transaksi, budget, net worth) disimpan **di HP Anda saja**. Tidak ada data
+keuangan di repo GitHub, jadi aman walaupun repo-nya public.
+
+| Halaman | Alamat | Isinya |
+|---|---|---|
+| Laporan | `keuangan/` | catat transaksi, ringkasan bulanan, backup & pulihkan |
+| Budget vs Realisasi | `keuangan/budget/` | budget per kategori vs pengeluaran yang dicatat di Laporan |
+| Net Worth | `keuangan/networth/` | snapshot aset & utang per bulan, tren, komposisi |
+
+### Mengisi budget bulan baru
+
+1. Buka **Budget**, pilih bulannya di pojok kanan atas (bulan ini dan bulan depan selalu tersedia).
+2. Buka **Atur budget**, isi angka per kategori. Kosongkan kategori yang tidak dianggarkan.
+   Tombol **Salin dari [bulan sebelumnya]** mengisi otomatis dari budget terakhir.
+3. Ketuk **Simpan budget**.
+
+Pengeluaran di kategori yang tidak punya budget tetap muncul, ditandai "tanpa budget".
+Untuk menghapus budget satu bulan, kosongkan semua kolom lalu simpan.
+
+### Mengisi snapshot net worth bulan baru
+
+1. Di akhir bulan, buka **Net Worth** → **Tambah / ubah snapshot**.
+2. Bulan otomatis terisi bulan ini, dan daftar aset/utang disalin dari snapshot terakhir.
+   Cukup perbarui nilainya, tambah atau hapus baris kalau perlu.
+3. Ketuk **Simpan snapshot**.
+
+Pakai nama aset yang sama dari bulan ke bulan supaya grafik komposisi rapi (nama lama muncul
+sebagai saran saat mengetik). Untuk memperbaiki bulan yang sudah ada, pilih bulannya lalu
+ketuk **Ubah snapshot ini**.
+
+### Backup
+
+**Backup data** di halaman Laporan menyimpan transaksi, budget, dan net worth dalam satu file.
+**Pulihkan backup** menerima file backup baru maupun file backup lama (yang hanya berisi transaksi;
+budget dan net worth Anda tidak tersentuh saat memulihkan file lama).
+
 ## Mengubah aplikasi
 
-- Daftar kategori ada di `index.html`, di bagian `const KATEGORI = { ... }`. Tambah atau hapus sesuai kebutuhan.
-- Setelah mengubah file apa pun, naikkan angka `VERSION` di `sw.js` (misalnya `keuangan-v2`)
+- Daftar kategori ada di `shared.js`, di bagian `const KATEGORI = { ... }` (dipakai halaman Laporan dan Budget). Tambah atau hapus sesuai kebutuhan.
+- Setelah mengubah file apa pun, naikkan angka `VERSION` di `sw.js` (misalnya `keuangan-v3`)
   supaya HP mengambil versi terbaru.
 - Coba di komputer: jalankan `npx http-server keuangan` lalu buka `http://localhost:8080`.

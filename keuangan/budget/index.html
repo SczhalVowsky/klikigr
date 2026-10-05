@@ -1,0 +1,300 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Budget vs Realisasi</title>
+<meta name="theme-color" content="#0f766e">
+<link rel="manifest" href="../manifest.webmanifest">
+<link rel="icon" href="../icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="../icon-192.png">
+<link rel="stylesheet" href="../shared.css">
+<style>
+  .kat { padding: 12px 0; border-top: 1px solid var(--line); }
+  .kat:first-child { border-top: 0; padding-top: 0; }
+  .kat-head { display: flex; justify-content: space-between; gap: 12px; }
+  .kat-head b { font-weight: 500; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .kat-head span { font-variant-numeric: tabular-nums; white-space: nowrap; font-size: 14px; }
+  .track { height: 10px; border-radius: 5px; background: var(--line); overflow: hidden; margin: 6px 0 4px; }
+  .fill { height: 100%; border-radius: 5px; }
+  .fill.ok { background: var(--ok); } .fill.warn { background: var(--warn); } .fill.bad { background: var(--bad); }
+  .kat-foot { display: flex; justify-content: space-between; font-size: 13px; color: var(--muted); }
+  .kat-foot .pct { font-weight: 600; }
+  .legend { display: flex; flex-wrap: wrap; gap: 4px 14px; font-size: 13px; color: var(--muted); margin-bottom: 8px; }
+  .legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 5px; vertical-align: -1px; }
+  .over-list { margin: 4px 0 0; padding-left: 18px; }
+  .budget-row { display: grid; grid-template-columns: 1fr 140px; gap: 10px; align-items: center; font-size: 15px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Budget vs Realisasi</h1>
+  <select id="bulan" aria-label="Pilih bulan"></select>
+</header>
+
+<nav class="subnav" aria-label="Halaman keuangan">
+  <a href="../">Laporan</a>
+  <a href="./" aria-current="page">Budget</a>
+  <a href="../networth/">Net Worth</a>
+</nav>
+
+<main>
+  <div id="pesan" hidden></div>
+
+  <details class="card" id="atur">
+    <summary id="atur-judul">Atur budget</summary>
+    <form id="form-budget" class="form-grid" novalidate>
+      <p class="hint">Isi budget per kategori. Kosongkan kategori yang tidak dianggarkan.</p>
+      <div id="budget-fields" class="form-grid"></div>
+      <p class="hint">Total budget: <b id="budget-total">Rp 0</b></p>
+      <p class="form-error" id="budget-error" hidden></p>
+      <div class="actions">
+        <button type="button" class="ghost" id="salin-budget" hidden></button>
+        <button type="submit">Simpan budget</button>
+      </div>
+    </form>
+  </details>
+
+  <section class="card" id="ringkasan" hidden>
+    <h2>Ringkasan</h2>
+    <div class="summary">
+      <div class="stat"><small>Total budget</small><b id="s-budget">Rp 0</b></div>
+      <div class="stat"><small>Total realisasi</small><b id="s-real">Rp 0</b></div>
+      <div class="stat big wide"><small id="s-sisa-label">Sisa budget</small><b id="s-sisa">Rp 0</b></div>
+      <div class="stat wide"><small>Kategori over budget</small><div id="s-over"></div></div>
+    </div>
+  </section>
+
+  <section class="card" id="kartu-kategori" hidden>
+    <h2>Per kategori</h2>
+    <div id="kategori"></div>
+  </section>
+
+  <section class="card" id="kartu-grafik" hidden>
+    <h2>Budget vs realisasi</h2>
+    <div class="legend">
+      <span><i style="background: var(--muted)"></i>Budget</span>
+      <span><i style="background: var(--ok)"></i>&lt; 80%</span>
+      <span><i style="background: var(--warn)"></i>80–100%</span>
+      <span><i style="background: var(--bad)"></i>&gt; 100%</span>
+    </div>
+    <div class="chart-box" id="chart-box"><canvas id="grafik" aria-label="Grafik budget vs realisasi per kategori" role="img"></canvas></div>
+  </section>
+
+  <p class="hint">
+    Realisasi = transaksi pengeluaran yang dicatat di halaman Laporan. Budget dan transaksi tersimpan
+    <b>di perangkat ini</b> dan ikut tersimpan saat Anda menekan <b>Backup data</b> di halaman Laporan.
+  </p>
+</main>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<script src="../shared.js"></script>
+<script>
+const $ = (id) => document.getElementById(id);
+let budget = Keu.loadBudget();   // { "2026-10": { "Makan & Minum": 1500000, ... } }
+const transaksi = Keu.loadTransaksi();
+let chart = null;
+
+function tampilPesan(html, id = '') {
+  $('pesan').insertAdjacentHTML('beforeend', `<div class="notice"${id ? ` id="${id}"` : ''} style="margin-bottom:8px">${html}</div>`);
+  $('pesan').hidden = false;
+}
+function hapusPesan(id) {
+  $(id)?.remove();
+  $('pesan').hidden = !$('pesan').children.length;
+}
+
+function realisasiBulan(bulan) {
+  const per = {};
+  transaksi.filter(t => t.jenis === 'keluar' && t.tanggal.startsWith(bulan))
+           .forEach(t => per[t.kategori] = (per[t.kategori] || 0) + Number(t.jumlah));
+  return per;
+}
+
+function statusDari(pct, real) {
+  if (pct === null) return real > 0 ? 'bad' : 'ok';
+  if (pct < 80) return 'ok';
+  if (pct <= 100) return 'warn';
+  return 'bad';
+}
+
+function hitungBaris(bulan) {
+  const b = budget[bulan] || {};
+  const real = realisasiBulan(bulan);
+  const tanpaBudget = Object.keys(real).filter(k => !(k in b)).sort((x, y) => real[y] - real[x]);
+  return [...Object.keys(b), ...tanpaBudget].map(kat => {
+    const bud = b[kat] || 0, r = real[kat] || 0;
+    const pct = bud > 0 ? r / bud * 100 : null;
+    return { kat, budget: bud, real: r, sisa: bud - r, pct, punyaBudget: kat in b, status: statusDari(pct, r) };
+  });
+}
+
+// ---- Report ----
+function renderRingkasan(baris) {
+  const totalBudget = baris.reduce((s, r) => s + r.budget, 0);
+  const totalReal = baris.reduce((s, r) => s + r.real, 0);
+  const sisa = totalBudget - totalReal;
+  $('s-budget').textContent = Keu.rupiah(totalBudget);
+  $('s-real').textContent = Keu.rupiah(totalReal);
+  $('s-sisa-label').textContent = sisa < 0 ? 'Melebihi budget' : 'Sisa budget';
+  $('s-sisa').textContent = Keu.rupiah(Math.abs(sisa));
+  $('s-sisa').className = sisa < 0 ? 'bad' : 'ok';
+
+  const over = baris.filter(r => r.status === 'bad');
+  $('s-over').innerHTML = over.length
+    ? `<b class="bad">${over.length} kategori</b><ul class="over-list">${over.map(r =>
+        `<li>${Keu.escapeHtml(r.kat)}: ${r.punyaBudget ? 'lebih ' + Keu.rupiah(-r.sisa) : 'tanpa budget, terpakai ' + Keu.rupiah(r.real)}</li>`).join('')}</ul>`
+    : '<b class="ok">Tidak ada</b>';
+}
+
+function renderKategori(baris) {
+  $('kategori').innerHTML = baris.map(r => {
+    const lebar = r.pct === null ? (r.real > 0 ? 100 : 0) : Math.min(r.pct, 100);
+    const pctTeks = r.pct === null ? (r.punyaBudget ? '—' : 'tanpa budget') : Keu.persen(r.pct);
+    const sisaTeks = !r.punyaBudget ? 'belum ada budget'
+      : r.sisa >= 0 ? `sisa ${Keu.rupiah(r.sisa)}` : `lebih ${Keu.rupiah(-r.sisa)}`;
+    return `<div class="kat">
+      <div class="kat-head"><b>${Keu.escapeHtml(r.kat)}</b><span>${Keu.rupiah(r.real)} / ${r.punyaBudget ? Keu.rupiah(r.budget) : '—'}</span></div>
+      <div class="track" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(lebar)}" aria-label="${Keu.escapeHtml(r.kat)}"><div class="fill ${r.status}" style="width:${lebar}%"></div></div>
+      <div class="kat-foot"><span>${sisaTeks}</span><span class="pct ${r.status}">${pctTeks}</span></div>
+    </div>`;
+  }).join('');
+}
+
+function renderGrafik(baris) {
+  if (chart) { chart.destroy(); chart = null; }
+  if (!Keu.chartTersedia()) {
+    $('chart-box').innerHTML = '<p class="empty">Grafik tidak bisa dimuat. Buka halaman ini sekali saat online.</p>';
+    return;
+  }
+  $('chart-box').style.height = `${baris.length * 44 + 40}px`;
+  const warna = { ok: Keu.cssVar('--ok'), warn: Keu.cssVar('--warn'), bad: Keu.cssVar('--bad') };
+  Chart.defaults.color = Keu.cssVar('--muted');
+  Chart.defaults.font.family = getComputedStyle(document.body).fontFamily;
+  chart = new Chart($('grafik'), {
+    type: 'bar',
+    data: {
+      labels: baris.map(r => r.kat),
+      datasets: [
+        { label: 'Budget', data: baris.map(r => r.budget), backgroundColor: Keu.cssVar('--muted'), borderRadius: 4 },
+        { label: 'Realisasi', data: baris.map(r => r.real), backgroundColor: baris.map(r => warna[r.status]), borderRadius: 4 }
+      ]
+    },
+    options: {
+      indexAxis: 'y',
+      maintainAspectRatio: false,
+      plugins: {
+        legend: { display: false },
+        tooltip: { callbacks: { label: c => `${c.dataset.label}: ${Keu.rupiah(c.raw)}` } }
+      },
+      scales: {
+        x: { beginAtZero: true, grid: { color: Keu.cssVar('--line') }, ticks: { callback: v => Keu.rupiahSingkat(v), maxTicksLimit: 4, maxRotation: 0 } },
+        y: { grid: { display: false } }
+      }
+    }
+  });
+}
+
+// ---- Budget form ----
+function bulanSebelumDenganBudget(bulan) {
+  return Object.keys(budget).filter(b => b < bulan).sort().at(-1);
+}
+
+function isiFormBudget(bulan, sumber = budget[bulan] || {}) {
+  const daftar = [...Keu.KATEGORI.keluar, ...Object.keys(sumber).filter(k => !Keu.KATEGORI.keluar.includes(k))];
+  $('budget-fields').innerHTML = daftar.map(kat => `
+    <label class="budget-row"><span>${Keu.escapeHtml(kat)}</span>
+      <input inputmode="numeric" autocomplete="off" placeholder="0" data-kat="${Keu.escapeHtml(kat)}" value="${Keu.tulisAngka(sumber[kat])}"></label>`).join('');
+  $('budget-fields').querySelectorAll('input').forEach(Keu.inputAngka);
+  $('atur-judul').textContent = `${budget[bulan] ? 'Ubah' : 'Atur'} budget ${Keu.namaBulan(bulan)}`;
+  const sebelum = bulanSebelumDenganBudget(bulan);
+  $('salin-budget').hidden = !sebelum;
+  if (sebelum) {
+    $('salin-budget').textContent = `Salin dari ${Keu.namaBulan(sebelum)}`;
+    $('salin-budget').dataset.bulan = sebelum;
+  }
+  $('budget-error').hidden = true;
+  hitungTotalForm();
+}
+
+function hitungTotalForm() {
+  const total = [...$('budget-fields').querySelectorAll('input')].reduce((s, i) => s + (Keu.bacaAngka(i.value) || 0), 0);
+  $('budget-total').textContent = Keu.rupiah(total);
+}
+
+$('budget-fields').addEventListener('input', hitungTotalForm);
+
+$('salin-budget').addEventListener('click', () => {
+  isiFormBudget($('bulan').value, budget[$('salin-budget').dataset.bulan]);
+});
+
+$('form-budget').addEventListener('submit', e => {
+  e.preventDefault();
+  const bulan = $('bulan').value;
+  const isi = {};
+  $('budget-fields').querySelectorAll('input').forEach(i => {
+    const n = Keu.bacaAngka(i.value);
+    if (n > 0) isi[i.dataset.kat] = n;
+  });
+  const baru = { ...budget };
+  if (Object.keys(isi).length) {
+    baru[bulan] = isi;
+  } else if (budget[bulan]) {
+    if (!confirm(`Semua kolom kosong. Hapus budget ${Keu.namaBulan(bulan)}?`)) return;
+    delete baru[bulan];
+  } else {
+    $('budget-error').textContent = 'Isi minimal satu kategori.';
+    $('budget-error').hidden = false;
+    return;
+  }
+  if (!Keu.saveBudget(baru)) return;
+  budget = Keu.loadBudget();
+  $('atur').open = false;
+  render();
+});
+
+// ---- Page ----
+function render() {
+  const bulan = $('bulan').value;
+  const baris = hitungBaris(bulan);
+  const adaBudget = !!budget[bulan];
+
+  hapusPesan('pesan-bulan');
+  if (!adaBudget) {
+    tampilPesan(`Belum ada budget untuk <b>${Keu.namaBulan(bulan)}</b>. Isi lewat <b>Atur budget</b> di bawah.`, 'pesan-bulan');
+    $('atur').open = true;
+  }
+  isiFormBudget(bulan);
+
+  const ada = baris.length > 0;
+  $('ringkasan').hidden = !ada;
+  $('kartu-kategori').hidden = !ada;
+  $('kartu-grafik').hidden = !ada;
+  if (!ada) return;
+  renderRingkasan(baris);
+  renderKategori(baris);
+  renderGrafik(baris);
+}
+
+function init() {
+  if (!transaksi.length) {
+    tampilPesan('Belum ada transaksi di perangkat ini, jadi realisasi masih Rp 0. Catat transaksi di halaman <a href="../">Laporan</a>, atau pulihkan backup di sana.');
+  }
+  // Always offer the current and next month so a budget can be planned ahead.
+  const sekarang = Keu.bulanIni();
+  const bulanTransaksi = transaksi.filter(t => t.jenis === 'keluar').map(t => t.tanggal.slice(0, 7));
+  const daftar = [...Object.keys(budget), ...bulanTransaksi, sekarang, Keu.bulanBerikut(sekarang)];
+  Keu.isiDropdownBulan($('bulan'), daftar, Keu.pilihBulanDefault(daftar));
+  $('bulan').addEventListener('change', render);
+  // Redraw only the chart on theme change so unsaved form input is kept.
+  matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (!$('kartu-grafik').hidden) renderGrafik(hitungBaris($('bulan').value));
+  });
+  render();
+}
+
+init();
+</script>
+</body>
+</html>
