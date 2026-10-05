@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Keuangan Bulanan</title>
+<meta name="theme-color" content="#0f766e">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Keuangan">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-192.png">
+<style>
+  :root {
+    --bg: #f4f6f8; --card: #ffffff; --text: #1f2933; --muted: #6b7785;
+    --line: #e3e7eb; --brand: #0f766e; --in: #15803d; --out: #c2410c;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #0f1418; --card: #182027; --text: #e6ebef; --muted: #93a1ad;
+      --line: #27323b; --brand: #2dd4bf; --in: #4ade80; --out: #fb923c;
+    }
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+    padding: env(safe-area-inset-top) 0 calc(env(safe-area-inset-bottom) + 24px);
+  }
+  header {
+    position: sticky; top: 0; z-index: 2; background: var(--brand); color: #fff;
+    padding: 14px 16px; display: flex; align-items: center; gap: 8px;
+  }
+  @media (prefers-color-scheme: dark) { header { color: #04201d; } }
+  header h1 { font-size: 17px; margin: 0; flex: 1; }
+  header input[type=month] {
+    font: inherit; border: 0; border-radius: 8px; padding: 6px 8px;
+    background: rgba(255,255,255,.9); color: #1f2933; width: auto; flex: none;
+  }
+  main { max-width: 560px; margin: 0 auto; padding: 16px; display: grid; gap: 16px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; }
+  .card h2 { font-size: 14px; margin: 0 0 12px; color: var(--muted); font-weight: 600; text-transform: uppercase; letter-spacing: .04em; }
+  .summary { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  .summary .saldo { grid-column: 1 / -1; }
+  .stat small { display: block; color: var(--muted); font-size: 12px; }
+  .stat b { font-size: 18px; font-variant-numeric: tabular-nums; }
+  .saldo b { font-size: 24px; }
+  .in { color: var(--in); } .out { color: var(--out); }
+  form { display: grid; gap: 10px; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  label { display: grid; gap: 4px; font-size: 13px; color: var(--muted); }
+  input, select {
+    font: inherit; font-size: 16px; color: var(--text); background: var(--bg);
+    border: 1px solid var(--line); border-radius: 10px; padding: 10px; width: 100%;
+  }
+  .toggle { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
+  .toggle input { display: none; }
+  .toggle label { text-align: center; padding: 10px; font-size: 15px; color: var(--text); cursor: pointer; }
+  #t-out:checked + label { background: var(--out); color: #fff; }
+  #t-in:checked + label { background: var(--in); color: #fff; }
+  button {
+    font: inherit; font-size: 16px; border: 0; border-radius: 10px; padding: 12px;
+    background: var(--brand); color: #fff; font-weight: 600; cursor: pointer;
+  }
+  @media (prefers-color-scheme: dark) { button { color: #04201d; } }
+  button.ghost { background: transparent; color: var(--brand); border: 1px solid var(--line); font-weight: 500; }
+  .bars { display: grid; gap: 10px; }
+  .bar small { display: flex; justify-content: space-between; font-size: 13px; }
+  .bar div { height: 8px; border-radius: 4px; background: var(--line); overflow: hidden; margin-top: 4px; }
+  .bar div span { display: block; height: 100%; background: var(--out); }
+  ul { list-style: none; margin: 0; padding: 0; }
+  li { display: flex; align-items: center; gap: 10px; padding: 10px 0; border-top: 1px solid var(--line); }
+  li:first-child { border-top: 0; }
+  li .info { flex: 1; min-width: 0; }
+  li .info b { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+  li .info small { color: var(--muted); }
+  li .amt { font-variant-numeric: tabular-nums; font-weight: 600; white-space: nowrap; }
+  li .del { background: none; color: var(--muted); padding: 4px 8px; font-size: 18px; }
+  .empty { color: var(--muted); text-align: center; padding: 8px 0; margin: 0; }
+  .tools { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .tools .full { grid-column: 1 / -1; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Keuangan Bulanan</h1>
+  <input type="month" id="bulan" aria-label="Pilih bulan">
+</header>
+
+<main>
+  <section class="card">
+    <h2>Ringkasan</h2>
+    <div class="summary">
+      <div class="stat"><small>Pemasukan</small><b class="in" id="s-in">Rp0</b></div>
+      <div class="stat"><small>Pengeluaran</small><b class="out" id="s-out">Rp0</b></div>
+      <div class="stat saldo"><small>Saldo bulan ini</small><b id="s-saldo">Rp0</b></div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Catat transaksi</h2>
+    <form id="form">
+      <div class="toggle">
+        <input type="radio" name="jenis" id="t-out" value="keluar" checked><label for="t-out">Pengeluaran</label>
+        <input type="radio" name="jenis" id="t-in" value="masuk"><label for="t-in">Pemasukan</label>
+      </div>
+      <label>Jumlah (Rp)
+        <input id="jumlah" inputmode="numeric" placeholder="contoh: 25.000" required autocomplete="off">
+      </label>
+      <div class="row">
+        <label>Kategori <select id="kategori"></select></label>
+        <label>Tanggal <input type="date" id="tanggal" required></label>
+      </div>
+      <label>Catatan
+        <input id="catatan" placeholder="opsional" autocomplete="off">
+      </label>
+      <button type="submit">Simpan</button>
+    </form>
+  </section>
+
+  <section class="card">
+    <h2>Pengeluaran per kategori</h2>
+    <div class="bars" id="bars"></div>
+  </section>
+
+  <section class="card">
+    <h2>Transaksi</h2>
+    <ul id="list"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Data</h2>
+    <div class="tools">
+      <button class="ghost full" id="csv">Unduh laporan bulan ini (CSV / Excel)</button>
+      <button class="ghost" id="backup">Backup data</button>
+      <button class="ghost" id="restore">Pulihkan backup</button>
+      <input type="file" id="file" accept="application/json" hidden>
+    </div>
+  </section>
+</main>
+
+<script>
+const KEY = 'keuangan-bulanan-v1';
+const KATEGORI = {
+  keluar: ['Makan & Minum', 'Belanja', 'Transportasi', 'Tagihan & Listrik', 'Pulsa & Internet', 'Kesehatan', 'Pendidikan', 'Hiburan', 'Cicilan', 'Lainnya'],
+  masuk: ['Gaji', 'Bonus', 'Usaha', 'Hadiah', 'Lainnya']
+};
+
+const $ = (id) => document.getElementById(id);
+const rupiah = (n) => 'Rp' + Math.round(n).toLocaleString('id-ID');
+const today = () => new Date().toLocaleDateString('sv'); // YYYY-MM-DD in local time
+
+let data = load();
+
+function load() {
+  try { return JSON.parse(localStorage.getItem(KEY)) || []; } catch { return []; }
+}
+function save() {
+  localStorage.setItem(KEY, JSON.stringify(data));
+}
+
+function jenis() {
+  return document.querySelector('input[name=jenis]:checked').value;
+}
+function isiKategori() {
+  $('kategori').innerHTML = KATEGORI[jenis()].map(k => `<option>${k}</option>`).join('');
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+}
+
+function transaksiBulan() {
+  const bulan = $('bulan').value;
+  return data.filter(t => t.tanggal.startsWith(bulan))
+             .sort((a, b) => b.tanggal.localeCompare(a.tanggal) || b.id - a.id);
+}
+
+function render() {
+  const list = transaksiBulan();
+  const masuk = list.filter(t => t.jenis === 'masuk').reduce((s, t) => s + t.jumlah, 0);
+  const keluar = list.filter(t => t.jenis === 'keluar').reduce((s, t) => s + t.jumlah, 0);
+  $('s-in').textContent = rupiah(masuk);
+  $('s-out').textContent = rupiah(keluar);
+  $('s-saldo').textContent = (masuk - keluar < 0 ? '-' : '') + rupiah(Math.abs(masuk - keluar));
+  $('s-saldo').className = masuk - keluar < 0 ? 'out' : 'in';
+
+  const perKat = {};
+  list.filter(t => t.jenis === 'keluar').forEach(t => perKat[t.kategori] = (perKat[t.kategori] || 0) + t.jumlah);
+  const urut = Object.entries(perKat).sort((a, b) => b[1] - a[1]);
+  $('bars').innerHTML = urut.length
+    ? urut.map(([k, v]) => `<div class="bar"><small><span>${escapeHtml(k)}</span><span>${rupiah(v)} · ${Math.round(v / keluar * 100)}%</span></small><div><span style="width:${v / urut[0][1] * 100}%"></span></div></div>`).join('')
+    : '<p class="empty">Belum ada pengeluaran bulan ini.</p>';
+
+  $('list').innerHTML = list.length
+    ? list.map(t => `<li>
+        <div class="info"><b>${escapeHtml(t.catatan || t.kategori)}</b>
+          <small>${new Date(t.tanggal + 'T00:00').toLocaleDateString('id-ID', { day: 'numeric', month: 'short' })} · ${escapeHtml(t.kategori)}</small></div>
+        <span class="amt ${t.jenis === 'masuk' ? 'in' : 'out'}">${t.jenis === 'masuk' ? '+' : '−'}${rupiah(t.jumlah)}</span>
+        <button class="del" data-id="${t.id}" aria-label="Hapus">×</button>
+      </li>`).join('')
+    : '<li><p class="empty" style="width:100%">Belum ada transaksi bulan ini.</p></li>';
+}
+
+// Format the amount field with thousand separators while typing.
+$('jumlah').addEventListener('input', e => {
+  const angka = e.target.value.replace(/\D/g, '');
+  e.target.value = angka ? Number(angka).toLocaleString('id-ID') : '';
+});
+
+document.querySelectorAll('input[name=jenis]').forEach(r => r.addEventListener('change', isiKategori));
+
+$('form').addEventListener('submit', e => {
+  e.preventDefault();
+  const jumlah = Number($('jumlah').value.replace(/\D/g, ''));
+  if (!jumlah) return $('jumlah').focus();
+  data.push({
+    id: Date.now(),
+    jenis: jenis(),
+    jumlah,
+    kategori: $('kategori').value,
+    tanggal: $('tanggal').value,
+    catatan: $('catatan').value.trim()
+  });
+  save();
+  $('bulan').value = $('tanggal').value.slice(0, 7);
+  $('jumlah').value = '';
+  $('catatan').value = '';
+  render();
+});
+
+$('list').addEventListener('click', e => {
+  const id = e.target.dataset.id;
+  if (!id || !confirm('Hapus transaksi ini?')) return;
+  data = data.filter(t => t.id !== Number(id));
+  save();
+  render();
+});
+
+$('bulan').addEventListener('change', render);
+
+function unduh(nama, isi, tipe) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([isi], { type: tipe }));
+  a.download = nama;
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+$('csv').addEventListener('click', () => {
+  const list = transaksiBulan().reverse();
+  const sel = (s) => `"${String(s).replace(/"/g, '""')}"`;
+  const baris = [['Tanggal', 'Jenis', 'Kategori', 'Catatan', 'Jumlah'].join(';')];
+  list.forEach(t => baris.push([t.tanggal, t.jenis === 'masuk' ? 'Pemasukan' : 'Pengeluaran', sel(t.kategori), sel(t.catatan), t.jenis === 'masuk' ? t.jumlah : -t.jumlah].join(';')));
+  const masuk = list.filter(t => t.jenis === 'masuk').reduce((s, t) => s + t.jumlah, 0);
+  const keluar = list.filter(t => t.jenis === 'keluar').reduce((s, t) => s + t.jumlah, 0);
+  baris.push('', `;;;Total pemasukan;${masuk}`, `;;;Total pengeluaran;${-keluar}`, `;;;Saldo;${masuk - keluar}`);
+  // BOM so Excel reads the file as UTF-8; ';' is the list separator in Indonesian locale.
+  unduh(`laporan-${$('bulan').value}.csv`, '﻿' + baris.join('\r\n'), 'text/csv');
+});
+
+$('backup').addEventListener('click', () => {
+  unduh(`backup-keuangan-${today()}.json`, JSON.stringify(data, null, 2), 'application/json');
+});
+
+$('restore').addEventListener('click', () => $('file').click());
+$('file').addEventListener('change', async e => {
+  const f = e.target.files[0];
+  if (!f) return;
+  try {
+    const isi = JSON.parse(await f.text());
+    if (!Array.isArray(isi)) throw new Error();
+    if (!confirm(`Ganti data sekarang dengan ${isi.length} transaksi dari backup?`)) return;
+    data = isi;
+    save();
+    render();
+  } catch {
+    alert('File backup tidak valid.');
+  } finally {
+    e.target.value = '';
+  }
+});
+
+$('tanggal').value = today();
+$('bulan').value = today().slice(0, 7);
+isiKategori();
+render();
+
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js');
+</script>
+</body>
+</html>
