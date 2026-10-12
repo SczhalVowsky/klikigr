@@ -101,7 +101,7 @@
   const markers = {
     blackout: { t: ev.blackout, sync: 'av' },
     question: ev.q,
-    battery: { t: ev.battery[0], sync: 'a' },
+    battery: ev.battery[0], // soft beeps under the crickets: a named moment, not a measured hit
     idea: { t: ev.idea, sync: 'a' },
     breath: ev.breath[0],
     lightsOn: { t: ev.lightsOn, sync: 'av' },

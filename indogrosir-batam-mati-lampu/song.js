@@ -17,16 +17,16 @@ const inBreath = (t) => t >= ev.breath[0] && t < ev.breath[1];
 // ================= HOME (bar 0): a cosy lo-fi groove that plays on past the blackout, then tape-stops =================
 {
   const K = I.kick({ tail: 0.2, punch: 0.6 }), R = I.rim(1, 3), SH = I.shaker(0.7, 5);
-  clock.eachStep(0, 2, 8, (t, b, s) => {
+  clock.eachStep(0, 1, 8, (t, b, s) => { // drums stop on the blackout: the thud is the only hit there
     if (s === 0 || s === 5) home.addMono(K, t, 0.5);
     if (s === 2 || s === 6) home.addMono(R, t, 0.3, 0.2);
     home.addMono(SH, t + (s % 2 ? 0.04 : 0), s % 2 ? 0.08 : 0.12, -0.3);
   });
-  for (const c of sc.chords.filter((c) => c.t0 < T(1, 2))) {
+  for (const c of sc.chords.filter((c) => c.t0 < ev.blackout)) {
     for (const n of c.notes) home.addMono(I.epiano(n, c.t1 - c.t0, { decay: 1.2 }), c.t0, 0.11, 0.1);
     home.addMono(I.bass(c.bass + 12, c.t1 - c.t0, { sub: 0.6 }), c.t0, 0.35);
   }
-  const mel = [['C5', 0], ['A4', 0.5], ['F4', 1], ['A4', 1.5], ['E5', 2], ['D5', 2.5], ['C5', 3], ['A4', 3.5], ['F5', 4], ['E5', 4.5]];
+  const mel = [['C5', 0], ['A4', 0.5], ['F4', 1], ['A4', 1.5], ['E5', 2], ['D5', 2.5], ['C5', 3], ['A4', 3.5]]; // nothing new starts on the blackout
   for (const [n, b] of mel) { const mb = I.musicBox(m(n)); home.addMono(mb, T(0, b), 0.14, -0.15); verb.addMono(mb, T(0, b), 0.06); }
   // two 8th-note flickers: the house power dips (a 70 ms dropout + an electric tick)
   for (const tf of ev.flicker) {
@@ -41,17 +41,21 @@ const inBreath = (t) => t >= ev.breath[0] && t < ev.breath[1];
   for (let i = 0; i < len; i++) {
     const rate = Math.pow(1 - i / len, 1.6);
     const j = Math.floor(pos), f = pos - j;
-    const fade = Math.min(1, (len - i) / (0.08 * SR));
+    const fade = 0.35 * Math.min(1, (len - i) / (0.08 * SR)); // the dying tail sits ~9 dB under the breaker hit
     home.L[t0 + i] = (L[j] * (1 - f) + L[j + 1] * f) * fade;
     home.R[t0 + i] = (Rr[j] * (1 - f) + Rr[j + 1] * f) * fade;
     pos += rate;
   }
   home.L.fill(0, t0 + len); home.R.fill(0, t0 + len);
+  // a 60 ms gap right before the cut, so the breaker crack lands on silence
+  { const g0 = Math.round((ev.blackout - 0.06) * SR); for (let i = g0; i < t0; i++) { const k = Math.max(0, 1 - (i - g0) / (0.01 * SR)); home.L[i] *= k; home.R[i] *= k; } }
 }
 // the power dies: a thunk and a falling electric whine
-fx.addMono(I.thud(55, 0.25), ev.blackout, 0.55);
-fx.addMono(I.tvClick(), ev.blackout, 0.4);
-fx.addMono(I.noiseSweep(0.7, 3000, 200, { q: 4 }), ev.blackout, 0.12);
+// (no tvClick here: its rattle re-triggers and blurs the hit)
+fx.addMono(I.snare({ decay: 0.18 }), ev.blackout, 1.5); // the breaker trips: one sharp, smooth-decaying crack
+fx.addMono(I.woodTick(0.6), ev.blackout, 0.4);
+fx.addMono(I.bwomp(), ev.blackout + 0.2, 0.3); // and the house sags
+fx.addMono(I.noiseSweep(0.7, 3000, 200, { q: 4, shape: (x) => x < 0.3 ? x / 0.3 * 0.2 : 0.2 + 0.8 * Math.sin(Math.PI * (x - 0.3) / 1.4) }), ev.blackout + 0.15, 0.1);
 
 // ================= DARK (bars 1-3): a low drone, crickets, low-battery beeps, no-signal bwomp =================
 for (const c of sc.chords.filter((c) => c.t0 >= T(1) && c.t0 < T(3))) {
