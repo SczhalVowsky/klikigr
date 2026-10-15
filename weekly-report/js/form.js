@@ -84,7 +84,7 @@
     out.classList.toggle('neg', typeof v === 'number' && v < 0);
   }
 
-  function compressImage(file, max = 1400) {
+  function compressImage(file, max = 1200) {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
       reader.onerror = reject;
@@ -100,7 +100,7 @@
           ctx.fillStyle = '#fff';
           ctx.fillRect(0, 0, c.width, c.height);
           ctx.drawImage(img, 0, 0, c.width, c.height);
-          resolve(c.toDataURL('image/jpeg', 0.82));
+          resolve(c.toDataURL('image/jpeg', 0.78));
         };
         img.src = reader.result;
       };
@@ -326,8 +326,8 @@
 
   async function api(path, opts = {}) {
     const res = await fetch(path, { ...opts, headers: { 'Content-Type': 'application/json', ...(opts.headers || {}) } });
-    const body = await res.json().catch(() => ({}));
-    if (!res.ok) throw new Error(body.error || `Gagal (${res.status})`);
+    const body = await res.json().catch(() => ({ error: `Server tidak membalas JSON (${res.status}) — pastikan PHP aktif` }));
+    if (!res.ok || body?.error) throw new Error(body?.error || `Gagal (${res.status})`);
     return body;
   }
 
@@ -353,7 +353,7 @@
     $('#sections').innerHTML = '<div class="card muted">Memuat…</div>';
 
     let server = null;
-    try { server = await api(`/api/reports/${id}`); } catch (e) { toast(e.message, 'error'); }
+    try { server = await api(`api.php?a=report&div=${id}`); } catch (e) { toast(e.message, 'error'); }
     if (current !== def) return;
     const draft = store.get(draftKey(id));
     const serverTime = server ? Date.parse(server.updatedAt) : 0;
@@ -387,7 +387,7 @@
     const view = $('#reportView');
     view.innerHTML = '<div class="muted">Memuat…</div>';
     try {
-      const report = await api(`/api/reports/${current.id}`);
+      const report = await api(`api.php?a=report&div=${current.id}`);
       view.innerHTML = report
         ? `<div class="report-meta">${[report.periode && `<b>${esc(report.periode)}</b>`, report.pengisi && esc(report.pengisi), new Date(report.updatedAt).toLocaleString('id-ID')].filter(Boolean).join(' · ')}</div>${window.WR.renderReport(current, report)}`
         : '<div class="r-empty">Divisi ini belum mengirim laporan.</div>';
@@ -401,7 +401,7 @@
     btn.disabled = true;
     btn.textContent = 'Mengirim…';
     try {
-      const saved = await api(`/api/reports/${current.id}`, { method: 'PUT', body: JSON.stringify(state) });
+      const saved = await api(`api.php?a=save&div=${current.id}`, { method: 'POST', body: JSON.stringify(state) });
       store.del(draftKey(current.id));
       $('#draftStatus').textContent = '';
       setLastSaved(saved);
@@ -433,7 +433,7 @@
   window.addEventListener('hashchange', route);
   route();
 
-  fetch('/api/settings').then((r) => r.json()).then((s) => {
+  fetch('api.php?a=settings').then((r) => r.json()).then((s) => {
     $('#tanggal').textContent = s.tanggal || '';
   }).catch(() => {});
 })();

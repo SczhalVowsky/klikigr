@@ -1,0 +1,10 @@
+# Batas ukuran laporan (foto disimpan di dalam laporan). Hanya berlaku di Apache + mod_php (XAMPP).
+<IfModule mod_php.c>
+  php_value post_max_size 64M
+  php_value memory_limit 256M
+</IfModule>
+<IfModule mod_php7.c>
+  php_value post_max_size 64M
+  php_value memory_limit 256M
+</IfModule>
+DirectoryIndex index.html

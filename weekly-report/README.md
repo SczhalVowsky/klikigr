@@ -1,56 +1,58 @@
 # Weekly Report — Indogrosir Batam
 
 Web pengisian laporan mingguan per divisi + halaman admin presentasi 3D dengan maskot.
+Berjalan di web server lokal yang mendukung **PHP 7.4+** (XAMPP, Laragon, WAMP, dll). Tidak perlu database.
 
-## Menjalankan
+## Pasang
 
-Butuh **Node.js 18+**. Tidak ada dependency yang perlu di-install.
+1. Copy seluruh folder `weekly-report` ke folder web Anda, misalnya `C:\xampp\htdocs\weekly-report`.
+2. Buka `config.php`, ganti `admin_pin`.
+3. Buka di browser:
+   - Pengisian divisi: `http://localhost/weekly-report/` (dari PC lain: `http://<ip-pc-server>/weekly-report/`)
+   - Admin: `http://localhost/weekly-report/admin.html`
 
-```bash
-cd weekly-report
-ADMIN_PIN=1234 PORT=3000 node server.js
-```
-
-- Halaman pengisian (semua divisi, tanpa login): `http://<ip-server>:3000/`
-- Halaman admin (pakai PIN): `http://<ip-server>:3000/admin`
-
-Kalau `ADMIN_PIN` tidak diisi, PIN default adalah `admin123` — **ganti sebelum dipakai**.
+Folder `data/` harus bisa ditulis oleh web server (di XAMPP Windows sudah otomatis bisa).
 
 ## Cara pakai
 
-**Divisi:** buka halaman utama → pilih divisi → isi format sesuai divisi → **Kirim Laporan**.
-Kolom bertanda *otomatis* dihitung sendiri (SL RP, growth, selisih, %, total, dll).
-Tab **Laporan Terkirim** menampilkan laporan divisi itu saja. Kirim ulang = menimpa laporan sebelumnya.
-Draft tersimpan otomatis di browser sampai laporan dikirim.
+**Divisi:** buka halaman utama → pilih divisi → isi format → **Kirim Laporan**.
+Kolom bertanda *otomatis* dihitung sendiri. Tab **Laporan Terkirim** menampilkan laporan divisi itu.
+Kirim ulang = menimpa laporan sebelumnya. Draft tersimpan otomatis di browser sampai dikirim.
 
 **Admin:** masuk dengan PIN → presentasi 3D (cover, satu slide per divisi, penutup "Salam Cinta").
 - Navigasi: tombol ‹ ›, panah keyboard, swipe, atau klik ikon divisi di atas.
 - `F` layar penuh · `P` putar otomatis · `R` muat ulang data.
-- Klik tanggal di kiri atas (atau ⚙) untuk mengisi **tanggal** laporan secara manual.
-- ⚙ **Kelola Data**: status pengisian tiap divisi, hapus per divisi, hapus semua, download backup JSON.
+- Klik tanggal di kiri atas untuk mengisi **tanggal** laporan secara manual.
+- ⚙ **Kelola Data**: status tiap divisi, hapus per divisi, hapus semua, download backup JSON.
 
 ## Data & hapus harian
 
-Semua laporan (termasuk foto, dikompres dan disimpan base64) ada di satu file: `data/reports.json`.
-Untuk mengosongkan: tombol **Hapus Semua Laporan** di admin, atau hapus file tersebut.
-Tanggal judul ikut tersimpan di file yang sama; tombol hapus di admin hanya menghapus laporan, tanggal tetap.
+Semua laporan (termasuk foto) ada di satu file: `data/reports.php` (isinya JSON; diawali `<?php exit; ?>`
+supaya tidak bisa dibuka langsung dari browser). Untuk mengosongkan: tombol **Hapus Semua Laporan**
+di admin, atau hapus file tersebut.
+
+Foto ikut terkirim bersama laporan. Kalau muncul pesan "Laporan terlalu besar", naikkan `post_max_size`
+di `php.ini` (mis. `64M`) lalu restart Apache. File `.htaccess` / `.user.ini` di folder ini sudah mencoba
+mengaturnya otomatis.
 
 ## Struktur
 
 ```
-server.js             server HTTP + API JSON (tanpa dependency)
-public/index.html     halaman pengisian divisi
-public/admin.html     halaman admin 3D
-public/js/schema.js   FORMAT LAPORAN TIAP DIVISI — ubah kolom/tabel di sini
-public/js/form.js     form pengisian (dibangun otomatis dari schema)
-public/js/render.js   tampilan laporan read-only (dipakai user & admin)
-public/js/admin.js    scene 3D (three.js), slide, maskot, panel kelola
-public/assets/character.png   maskot (ganti file ini untuk mengganti karakter)
-public/vendor/three.module.min.js   three.js r160 (lokal, tidak butuh internet)
+index.html            halaman pengisian divisi
+admin.html            halaman admin 3D
+api.php               simpan/baca laporan (JSON)
+config.php            PIN admin
+data/                 tempat file laporan (diblokir dari browser)
+js/schema.js          FORMAT LAPORAN TIAP DIVISI — ubah kolom/tabel di sini
+js/form.js            form pengisian (dibangun otomatis dari schema)
+js/render.js          tampilan laporan read-only (dipakai user & admin)
+js/admin.js           scene 3D (three.js), slide, maskot, panel kelola
+assets/character.png  maskot (ganti file ini untuk mengganti karakter)
+vendor/               three.js lokal (tidak butuh internet)
 ```
 
 ## Batasan keamanan
 
 - Halaman divisi **tanpa login** sesuai permintaan: siapa pun yang membuka web bisa memilih divisi mana saja,
-  melihat dan menimpa laporan divisi itu. Jalankan hanya di jaringan internal kantor.
-- Halaman admin dilindungi PIN; sesi admin hilang saat server di-restart (cukup login ulang).
+  melihat dan menimpa laporan divisi itu. Pakai hanya di jaringan internal kantor.
+- Halaman admin dilindungi PIN (sesi PHP); 5x salah PIN = dikunci 1 menit.

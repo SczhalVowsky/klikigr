@@ -1,2 +1,3 @@
-data/*.json
+data/reports.php
+data/login-fails.php
 data/*.tmp

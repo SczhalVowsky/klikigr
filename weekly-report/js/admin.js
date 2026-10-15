@@ -29,9 +29,9 @@ async function api(path, opts = {}) {
     ...opts,
     headers: { 'Content-Type': 'application/json', 'X-Admin-Token': session.token || '', ...(opts.headers || {}) },
   });
-  const body = await res.json().catch(() => ({}));
-  if (res.status === 401 && !path.includes('/login')) { session.token = null; showLogin(); }
-  if (!res.ok) throw new Error(body.error || `Gagal (${res.status})`);
+  const body = await res.json().catch(() => ({ error: `Server tidak membalas JSON (${res.status}) — pastikan PHP aktif` }));
+  if (res.status === 401 && !path.includes('a=login')) { session.token = null; showLogin(); }
+  if (!res.ok || body?.error) throw new Error(body?.error || `Gagal (${res.status})`);
   return body;
 }
 
@@ -428,7 +428,7 @@ function toggleFullscreen() {
  * ===================================================================== */
 async function loadData() {
   try {
-    store = await api('/api/reports');
+    store = await api('api.php?a=all');
     $('#tanggalBtn').textContent = store.settings.tanggal || 'Isi tanggal…';
     $('#tanggalInput').value = store.settings.tanggal || '';
     buildSlides();
@@ -451,7 +451,7 @@ function renderStatus() {
     const d = DIVISIONS.find((x) => x.id === b.dataset.del);
     if (!confirm(`Hapus laporan ${d.name}? Tindakan ini tidak bisa dibatalkan.`)) return;
     try {
-      await api(`/api/reports/${d.id}`, { method: 'DELETE' });
+      await api(`api.php?a=delete&div=${d.id}`, { method: 'POST' });
       toast(`Laporan ${d.name} dihapus`, 'ok');
       loadData();
     } catch (e) { toast(e.message, 'error'); }
@@ -469,7 +469,7 @@ $('#tanggalBtn').addEventListener('click', () => openDrawer(true));
 $('#closeDrawer').addEventListener('click', () => { $('#drawer').hidden = true; });
 $('#saveTanggal').addEventListener('click', async () => {
   try {
-    store.settings = await api('/api/settings', { method: 'PUT', body: JSON.stringify({ tanggal: $('#tanggalInput').value }) });
+    store.settings = await api('api.php?a=settings', { method: 'POST', body: JSON.stringify({ tanggal: $('#tanggalInput').value }) });
     $('#tanggalBtn').textContent = store.settings.tanggal || 'Isi tanggal…';
     buildSlides();
     toast('Tanggal disimpan', 'ok');
@@ -488,13 +488,17 @@ $('#backupBtn').addEventListener('click', () => {
 $('#clearBtn').addEventListener('click', async () => {
   if (!confirm('Hapus SEMUA laporan dari semua divisi? Download backup dulu bila perlu.')) return;
   try {
-    await api('/api/reports', { method: 'DELETE' });
+    await api('api.php?a=clear', { method: 'POST' });
     toast('Semua laporan dihapus', 'ok');
     index = 0;
     loadData();
   } catch (e) { toast(e.message, 'error'); }
 });
-$('#logoutBtn').addEventListener('click', () => { session.token = null; location.reload(); });
+$('#logoutBtn').addEventListener('click', async () => {
+  session.token = null;
+  await fetch('api.php?a=logout', { method: 'POST' }).catch(() => {});
+  location.reload();
+});
 
 $('#prevBtn').addEventListener('click', prev);
 $('#nextBtn').addEventListener('click', next);
@@ -523,7 +527,7 @@ $('#loginForm').addEventListener('submit', async (e) => {
   e.preventDefault();
   $('#loginErr').textContent = '';
   try {
-    const { token } = await api('/api/admin/login', { method: 'POST', body: JSON.stringify({ pin: $('#pin').value }) });
+    const { token } = await api('api.php?a=login', { method: 'POST', body: JSON.stringify({ pin: $('#pin').value }) });
     session.token = token;
     $('#pin').value = '';
     enterApp();
@@ -538,7 +542,7 @@ scene3d.go(0, '#ffc20e');
 (async () => {
   if (!session.token) return showLogin();
   try {
-    await api('/api/admin/check');
+    await api('api.php?a=check');
     enterApp();
   } catch {
     showLogin();
