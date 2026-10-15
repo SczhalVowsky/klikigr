@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Report</title>
+  <link rel="icon" href="assets/character.png">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body class="user-page">
+  <header class="topbar">
+    <div class="brand">
+      <img src="assets/character.png" alt="" class="brand-mascot">
+      <div>
+        <div class="brand-title">WEEKLY REPORT</div>
+        <div class="brand-date" id="tanggal">&nbsp;</div>
+      </div>
+    </div>
+    <a href="admin" class="admin-link" title="Halaman admin">Admin</a>
+  </header>
+
+  <main>
+    <!-- Pilih divisi -->
+    <section id="picker" class="view">
+      <h1 class="page-title">Pilih Divisi</h1>
+      <p class="page-sub">Pilih divisi Anda, lalu isi laporan sesuai format. Tanpa login.</p>
+      <div id="divGrid" class="div-grid"></div>
+    </section>
+
+    <!-- Form divisi -->
+    <section id="formView" class="view" hidden>
+      <div class="form-head">
+        <button class="btn ghost" id="backBtn" type="button">← Ganti Divisi</button>
+        <div class="form-title">
+          <span id="divIcon" class="div-icon"></span>
+          <div>
+            <h1 id="divName"></h1>
+            <div id="lastSaved" class="muted"></div>
+          </div>
+        </div>
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="isi" type="button" role="tab">Isi Laporan</button>
+          <button class="tab" data-tab="lihat" type="button" role="tab">Laporan Terkirim</button>
+        </div>
+      </div>
+
+      <div id="tabIsi">
+        <div class="card meta-card">
+          <label>Nama Pengisi<input id="metaPengisi" type="text" placeholder="Nama Anda"></label>
+          <label>Periode Laporan<input id="metaPeriode" type="text" placeholder="01 Oktober - 13 Oktober 2026"></label>
+        </div>
+        <div id="sections"></div>
+        <div class="submit-bar">
+          <span id="draftStatus" class="muted"></span>
+          <button class="btn primary" id="submitBtn" type="button">Kirim Laporan</button>
+        </div>
+      </div>
+
+      <div id="tabLihat" hidden>
+        <div class="card report-view" id="reportView"></div>
+      </div>
+    </section>
+  </main>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/schema.js"></script>
+  <script src="js/render.js"></script>
+  <script src="js/form.js"></script>
+</body>
+</html>

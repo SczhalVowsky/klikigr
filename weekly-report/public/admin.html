@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Weekly Report — Admin</title>
+  <link rel="icon" href="assets/character.png">
+  <link rel="stylesheet" href="css/style.css">
+  <link rel="stylesheet" href="css/admin.css">
+</head>
+<body class="admin-page">
+  <canvas id="bg3d" aria-hidden="true"></canvas>
+
+  <!-- Login admin -->
+  <div id="login" class="login">
+    <form class="login-card" id="loginForm">
+      <img src="assets/character.png" alt="" class="login-mascot">
+      <h1>WEEKLY REPORT</h1>
+      <p>Halaman ini khusus admin. Masukkan PIN.</p>
+      <input id="pin" type="password" inputmode="numeric" autocomplete="current-password" placeholder="PIN admin" required>
+      <button class="btn primary" type="submit">Masuk</button>
+      <div id="loginErr" class="login-err" role="alert"></div>
+      <a href="./" class="login-back">← Kembali ke pengisian laporan</a>
+    </form>
+  </div>
+
+  <!-- Presentasi -->
+  <div id="app" class="app" hidden>
+    <header class="hud">
+      <div class="hud-brand">
+        <div class="hud-title">WEEKLY REPORT</div>
+        <button id="tanggalBtn" class="hud-date" type="button" title="Klik untuk mengubah tanggal">—</button>
+      </div>
+      <nav id="dots" class="dots" aria-label="Lompat ke slide"></nav>
+      <div class="hud-actions">
+        <button class="hud-btn" id="reloadBtn" type="button" title="Muat ulang data (R)">⟳</button>
+        <button class="hud-btn" id="playBtn" type="button" title="Putar otomatis (P)">▶</button>
+        <button class="hud-btn" id="fsBtn" type="button" title="Layar penuh (F)">⛶</button>
+        <button class="hud-btn" id="manageBtn" type="button" title="Kelola data">⚙</button>
+      </div>
+    </header>
+
+    <div id="deck" class="deck" aria-live="polite"></div>
+
+    <footer class="deck-nav">
+      <button class="nav-arrow" id="prevBtn" type="button" aria-label="Slide sebelumnya">‹</button>
+      <div class="deck-progress"><div id="progressBar"></div></div>
+      <span id="counter" class="counter">1 / 1</span>
+      <button class="nav-arrow" id="nextBtn" type="button" aria-label="Slide berikutnya">›</button>
+    </footer>
+
+    <div id="mascot" class="mascot" aria-hidden="true">
+      <div class="mascot-bubble" id="bubble"></div>
+      <div class="mascot-body"><img src="assets/character.png" alt=""></div>
+      <div class="mascot-shadow"></div>
+    </div>
+  </div>
+
+  <!-- Panel kelola data -->
+  <aside id="drawer" class="drawer" hidden>
+    <div class="drawer-head">
+      <h2>Kelola Data</h2>
+      <button class="icon-btn" id="closeDrawer" type="button" aria-label="Tutup">✕</button>
+    </div>
+    <label class="drawer-field">Tanggal (judul laporan)
+      <div class="row"><input id="tanggalInput" type="text" placeholder="01 - 13 Oktober 2026"><button class="btn" id="saveTanggal" type="button">Simpan</button></div>
+    </label>
+    <label class="switch"><input type="checkbox" id="showEmpty"> Tampilkan divisi yang belum mengisi di slide</label>
+    <div id="statusList" class="status-list"></div>
+    <div class="drawer-actions">
+      <button class="btn" id="backupBtn" type="button">⬇ Download Backup JSON</button>
+      <button class="btn danger" id="clearBtn" type="button">🗑 Hapus Semua Laporan</button>
+      <button class="btn ghost" id="logoutBtn" type="button">Keluar</button>
+    </div>
+  </aside>
+
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+
+  <script src="js/schema.js"></script>
+  <script src="js/render.js"></script>
+  <script type="module" src="js/admin.js"></script>
+</body>
+</html>
