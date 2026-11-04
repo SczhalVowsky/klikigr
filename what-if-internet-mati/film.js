@@ -634,3 +634,11 @@
     post: { paper: 0, vignette: 0.4, grain: 0.03 },
   });
 })();
+// CAST_TEST
+globalThis.CAST = {
+  rafi: { skin: '#C68B59', hair: '#1B1310', hairStyle: 'quiff', outfit: 'tee', shirt: '#3A6FD8', bottoms: 'pants', shorts: '#2B3140', build: 'slim' },
+  driver: { skin: '#A86F45', hair: '#1B1310', hairStyle: 'short', outfit: 'hoodie', shirt: '#2FB36B', trim: '#1E7D49', bottoms: 'pants', shorts: '#2B3140', headwear: 'cap', headwearColor: '#2FB36B', facialHair: 'stubble' },
+  buSri: { skin: '#B97A4F', hairStyle: 'hijab', hijab: '#8E2C48', outfit: 'dress', shirt: '#E9A23B', build: 'heavy' },
+  dina: { skin: '#D9A07A', hair: '#2A1A14', hairStyle: 'ponytail', outfit: 'hoodie', shirt: '#F2F2F2', trim: '#5CC8FF', bottoms: 'pants', shorts: '#3B4A6B', glasses: 'round' },
+  pakHarto: { skin: '#9C6440', hair: '#D8D8D8', hairStyle: 'short', facialHair: 'mustache', outfit: 'shirt', shirt: '#7A4A2A', collar: '#5A3520', bottoms: 'pants', shorts: '#2B2B2B', headwear: 'topi', headwearColor: '#151515', build: 'regular' },
+};
