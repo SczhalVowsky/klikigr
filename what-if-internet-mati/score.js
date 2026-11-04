@@ -164,11 +164,11 @@
     atm: { t: S.atm[0], sync: 'av' },
     siang: { t: S.siang[0], sync: 'av' },
     maps: { t: S.maps[0], sync: 'av' },
-    tunggu: { t: S.tunggu[0], sync: 'av' },
+    tunggu: { t: S.tunggu[0], sync: 'v' },
     breath: ev.breath,
     online: { t: ev.online, sync: 'av' },
     posting: { t: S.posting[0], sync: 'av' },
-    postTap: { t: ev.postTap, sync: 'av' },
+    postTap: ev.postTap,
     cta: { t: S.cta[0], sync: 'av' },
   };
 
