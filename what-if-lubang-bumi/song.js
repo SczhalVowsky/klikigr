@@ -37,7 +37,7 @@ clock.eachStep(0, 33, 16, (t, b, s) => {
 // a hit on every scene cut
 for (const k of ['globe', 'monas', 'float', 'inti', 'panas', 'kolombia', 'cta', 'sumber']) {
   const t = S[k][0];
-  fx.addMono(I.noiseSweep(0.4, 500, 6000, { q: 0.9, shape: (x) => x * x, pink: true }), t - 0.4, 0.16);
+  if (k !== 'sumber') fx.addMono(I.noiseSweep(0.4, 500, 6000, { q: 0.9, shape: (x) => x * x, pink: true }), t - 0.4, 0.16); // the end card cuts clean
   fx.addMono(I.tvClick(), t, 0.5);
   drums.addMono(K, t, 0.5);
 }
