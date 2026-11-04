@@ -167,6 +167,47 @@
     ctx.restore();
   }
 
+  // ---------------- the cast (expressive rigged characters; no names are ever shown) ----------------
+  const STY = {
+    rafi: { skin: '#C68B59', hair: '#1B1310', hairStyle: 'quiff', outfit: 'tee', shirt: '#3A6FD8', bottoms: 'pants', shorts: '#2B3140', build: 'slim' },
+    driver: { skin: '#A86F45', hair: '#1B1310', hairStyle: 'short', outfit: 'hoodie', shirt: '#2FB36B', trim: '#1E7D49', bottoms: 'pants', shorts: '#2B3140', headwear: 'cap', headwearColor: '#2FB36B', facialHair: 'stubble' },
+    ibu: { skin: '#B97A4F', hairStyle: 'hijab', hijab: '#8E2C48', outfit: 'dress', shirt: '#E9A23B', build: 'heavy' },
+    dina: { skin: '#D9A07A', hair: '#2A1A14', hairStyle: 'ponytail', outfit: 'hoodie', shirt: '#F2F2F2', trim: '#5CC8FF', bottoms: 'pants', shorts: '#3B4A6B', glasses: 'round' },
+    bapak: { skin: '#9C6440', hair: '#D8D8D8', hairStyle: 'short', facialHair: 'mustache', outfit: 'shirt', shirt: '#7A4A2A', collar: '#5A3520', bottoms: 'pants', shorts: '#2B2B2B', headwear: 'topi', headwearColor: '#151515' },
+  };
+  const SKINS = ['#C68B59', '#A86F45', '#D9A07A', '#9C6440', '#B97A4F', '#E0B08A'];
+  const SHIRTS = ['#3A6FD8', '#E2574C', '#2FB36B', '#E9A23B', '#8E5AC8', '#F2F2F2', '#1F8A8A', '#D9487E', '#5C6B8A'];
+  const HAIRS = ['quiff', 'short', 'buzz', 'long', 'ponytail', 'hijab', 'curly', 'bun', 'short', 'hijab'];
+  const CROWD = Array.from({ length: 40 }, (_, i) => {
+    const hs = HAIRS[Math.floor(hsh(i, 1) * HAIRS.length)];
+    const outfit = ['tee', 'shirt', 'hoodie', 'tee'][Math.floor(hsh(i, 2) * 4)];
+    return { skin: SKINS[Math.floor(hsh(i, 3) * SKINS.length)], hair: hsh(i, 4) > 0.85 ? '#5A3A22' : '#1B1310', hairStyle: hs,
+      hijab: SHIRTS[Math.floor(hsh(i, 5) * SHIRTS.length)], outfit, shirt: SHIRTS[Math.floor(hsh(i, 6) * SHIRTS.length)],
+      bottoms: hs === 'hijab' && hsh(i, 7) > 0.5 ? 'skirt' : 'pants', shorts: ['#2B3140', '#3B4A6B', '#4A3A2A'][Math.floor(hsh(i, 8) * 3)],
+      glasses: hsh(i, 9) > 0.82 ? 'square' : 'none', facialHair: hs === 'short' && hsh(i, 10) > 0.6 ? 'stubble' : 'none' };
+  });
+  const blinkAt = (t, k) => { const p = (t + hsh(k, 11) * 5) % 3.3; return p < 0.14 ? Math.sin((p / 0.14) * Math.PI) : 0; };
+  // person: Ch.person + automatic blinking and breathing. style: a key of STY, a CROWD index, or an object
+  function person(ctx, o) {
+    const k = o.k || 1;
+    const st = typeof o.style === 'string' ? STY[o.style] : typeof o.style === 'number' ? CROWD[o.style % CROWD.length] : o.style;
+    const eyesClosed = o.eyes === 'happy' || o.eyes === 'closed' || o.eyes === 'sleep';
+    const q = Object.assign({ pose: 'stand', mouth: 'flat', blink: eyesClosed ? 0 : blinkAt(G.t, k), sy: 1 + 0.012 * Math.sin(G.t * 2.4 + k), seed: 300 + k * 17 }, o, { style: st });
+    delete q.k;
+    ctx.save(); ctx.globalAlpha *= o.alpha == null ? 1 : o.alpha;
+    Ch.person(ctx, q);
+    if (o.glow) { // the phone lights the face and hand
+      const seated = q.pose === 'sit';
+      const hx = o.x + 26 * o.s, hy = o.y + (seated ? -98 : -248) * o.s;
+      ctx.save(); ctx.globalCompositeOperation = 'lighter';
+      const g = ctx.createRadialGradient(hx, hy - 60 * o.s, 4, hx, hy - 60 * o.s, 190 * o.s);
+      g.addColorStop(0, hexA(o.glow, 0.35)); g.addColorStop(1, hexA(o.glow, 0));
+      ctx.fillStyle = g; ctx.fillRect(hx - 200 * o.s, hy - 260 * o.s, 400 * o.s, 400 * o.s);
+      ctx.restore();
+    }
+    ctx.restore();
+  }
+
   // an isometric-ish box (tables, counters, ATMs) with three shaded faces
   function box(ctx, x, y, w, h, d, { top = '#2C3F6E', front = '#1E2E55', side = '#16244A' } = {}) {
     // (x, y) = front-bottom-left corner; d = depth going up-right
@@ -286,29 +327,33 @@
     room(ctx, t, { horizon: 980 });
     const s0 = S.S.wifi[0];
     // table + router
-    box(ctx, 600, 1180, 330, 150, 120);
-    const rx = 690, ry = 1030 - 0;
+    box(ctx, 70, 1180, 320, 150, 110);
+    const rx = 120, ry = 1030 - 0;
     box(ctx, rx, ry, 170, 44, 70, { top: '#E7ECF5', front: '#C7D0E0', side: '#A9B4C8' });
     ctx.strokeStyle = '#C7D0E0'; ctx.lineWidth = 8; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(rx + 30, ry - 44); ctx.lineTo(rx + 12, ry - 140); ctx.moveTo(rx + 140, ry - 44); ctx.lineTo(rx + 165, ry - 138); ctx.stroke();
     const n = S.restarts.filter((r) => t >= r).length, last = S.restarts[n - 1] ?? -9;
     const offBlink = t - last < 0.22;
     for (let i = 0; i < 4; i++) { ctx.fillStyle = offBlink ? '#2A3550' : i === 0 ? C.red : (Math.sin(t * 9 + i) > 0 ? C.red : '#5A2030'); ctx.beginPath(); ctx.arc(rx + 30 + i * 34, ry - 20, 7, 0, Math.PI * 2); ctx.fill(); }
-    // mannequin: phone in the back hand, front hand pokes the router on each restart
+    // he holds his phone (right hand) and pokes the router (left hand) on every restart, more frantic each time
     const poke = n > 0 ? Math.exp(-(t - last) * 7) : 0;
-    const reach = [lerp(60, 205, poke), lerp(95, 20, poke)];
-    mannequin(ctx, { x: 420, y: 1180, s: 1.55, face: 1, handF: n > 0 ? reach : [20, 80], handB: [52, 18], phone: 'B', screen: C.red, tilt: n > 0 ? 0.12 : 0.28 });
+    const handL = n > 0 ? [lerp(-150, -205, poke), lerp(-215, -190, poke)] : undefined;
+    const mood = n === 0 ? { eyes: 'normal', brows: 'up', mouth: t >= s0 + 0.9 ? 'o' : 'flat', look: 0.4, lookY: 0.7 }
+      : n < 3 ? { eyes: poke > 0.5 ? 'wide' : 'normal', brows: 'worried', mouth: 'flat', look: poke > 0.3 ? -1 : 0.4, lookY: poke > 0.3 ? 0.3 : 0.7 }
+        : n < 6 ? { eyes: poke > 0.5 ? 'wide' : 'normal', brows: 'determined', mouth: 'wavy', look: -1, lookY: 0.3, sweat: 0.6 }
+          : { eyes: 'wide', brows: 'worried', mouth: 'open', look: -1, lookY: 0.2, sweat: 1 };
+    person(ctx, Object.assign({ x: 480, y: 1210, s: 0.92, k: 1, style: 'rafi', gesture: 'phone', handL, headRot: n > 0 ? -0.06 * poke : 0.05, glow: C.red }, mood));
     // thought + error card
     if (t >= s0 + 0.9) {
       const a = pop(t, s0 + 0.9);
-      ctx.save(); ctx.translate(250, 640); ctx.scale(a, a);
+      ctx.save(); ctx.translate(770, 640); ctx.scale(a, a);
       rr(ctx, -150, -60, 300, 110, 30); ctx.fillStyle = C.white; ctx.fill();
-      ctx.beginPath(); ctx.arc(70, 72, 14, 0, Math.PI * 2); ctx.arc(100, 100, 8, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(-90, 74, 14, 0, Math.PI * 2); ctx.arc(-130, 104, 8, 0, Math.PI * 2); ctx.fill();
       txt(ctx, 'kuota habis?', 0, 14, { size: 40, align: 'center', color: C.ink });
       ctx.restore();
     }
     // wifi-x icon above the router
-    const wy = 790, wx = 790;
+    const wy = 790, wx = 190;
     ctx.save(); ctx.lineCap = 'round'; ctx.lineWidth = 12;
     for (let i = 1; i <= 3; i++) { ctx.strokeStyle = i === 1 || Math.sin(t * 5) > 0 ? 'rgba(238,242,248,0.85)' : 'rgba(238,242,248,0.25)'; ctx.beginPath(); ctx.arc(wx, wy, i * 34, -Math.PI * 0.78, -Math.PI * 0.22); ctx.stroke(); }
     ctx.fillStyle = C.white; ctx.beginPath(); ctx.arc(wx, wy, 9, 0, Math.PI * 2); ctx.fill();
@@ -338,12 +383,14 @@
     txt(ctx, 'HALTE', qx + 175, 678, { size: 34, align: 'center', color: C.ink });
     const nq = S.queue.filter((q) => t >= q).length;
     for (let i = Math.min(nq, 10) - 1; i >= 0; i--) {
-      const depth = i / 9, s = lerp(0.9, 0.5, depth);
-      const x = lerp(qx + 340, qx - 70, depth), y = lerp(1260, 960, depth);
+      const depth = i / 9, s = lerp(0.5, 0.28, depth);
+      const x = lerp(qx + 300, qx + 20, depth), y = lerp(1180, 980, depth);
       const a = pop(t, S.queue[i], 0.3);
       const ph = i % 3 === 0;
-      mannequin(ctx, { x, y: y + (1 - a) * 40, s, face: -1, alpha: clamp(a), handF: [6, 95], handB: ph ? [34, 22] : [-6, 96], phone: ph ? 'B' : null, screen: ph ? C.red : null, tilt: ph ? 0.3 : 0.05 });
+      person(ctx, { x, y: y + (1 - a) * 40, s, k: 20 + i, style: i, alpha: clamp(a), gesture: ph ? 'phone' : i % 3 === 1 ? 'akimbo' : null, eyes: 'normal', brows: 'worried', mouth: i % 2 ? 'flat' : 'wavy', look: ph ? 0.3 : -0.6, lookY: ph ? 0.7 : 0, glow: ph ? C.red : null });
     }
+    // the driver in front of the stop, staring at his phone
+    person(ctx, { x: 700, y: 1290, s: 0.72, k: 2, style: 'driver', gesture: 'phone', eyes: t >= T(8, 2) ? 'wide' : 'normal', brows: t >= T(8, 2) ? 'up' : 'worried', mouth: t >= T(8, 2) ? 'o' : 'flat', look: 0.3, lookY: 0.8, glow: t >= T(8, 2) ? C.red : '#9EE6FF' });
     // the ride app, left
     bigPhone(ctx, SA.x + 10, 560, 420, 700, (c, w, h) => {
       c.fillStyle = '#E9EDF3'; c.fillRect(0, 0, w, h);
@@ -369,14 +416,13 @@
   function qris(ctx, t) {
     room(ctx, t, { horizon: 960 });
     const failed = t >= ev.gagal;
-    // counter
+    // cashier behind the counter, customer in front-left
+    person(ctx, { x: 560, y: 1050, s: 0.6, k: 3, style: 'bapak', eyes: 'normal', brows: failed ? 'worried' : 'neutral', mouth: failed ? 'wavy' : 'smile', look: -0.8, gesture: failed ? 'shrug' : null });
     box(ctx, 150, 1230, 760, 210, 150, { top: '#33497E', front: '#22355F', side: '#1A2A4F' });
-    // cashier behind, customer in front-left
-    mannequin(ctx, { x: 520, y: 1010, s: 1.05, face: -1, handF: [40, 70], handB: [10, 90], tilt: failed ? -0.15 : 0.05 });
     // QR stand on the counter
     box(ctx, 400, 1012, 70, 120, 20, { top: '#E7ECF5', front: '#FFFFFF', side: '#C7D0E0' });
     for (let i = 0; i < 5; i++) for (let j = 0; j < 7; j++) if (hsh(i, j, 77) > 0.45) { ctx.fillStyle = '#0A1430'; ctx.fillRect(408 + i * 11, 900 + j * 14, 9, 12); }
-    mannequin(ctx, { x: 200, y: 1300, s: 1.35, face: 1, handF: [120, -8], handB: [30, 80], phone: 'F', screen: failed ? C.red : '#9EE6FF', tilt: 0.08 });
+    person(ctx, { x: 250, y: 1320, s: 0.82, k: 4, style: 'dina', gesture: 'phone', handR: [150, -330], eyes: failed ? 'wide' : 'normal', brows: failed ? 'up' : 'neutral', mouth: failed ? 'o' : 'smile', look: 0.6, lookY: -0.2, glow: failed ? C.red : '#9EE6FF' });
     // inset: the phone screen
     bigPhone(ctx, 640, 520, 300, 470, (c, w, h) => {
       c.fillStyle = failed ? '#2A0E16' : '#0F1A33'; c.fillRect(0, 0, w, h);
@@ -416,10 +462,11 @@
     txt(ctx, 'ATM', SA.x + 125, 722, { size: 32, align: 'center', color: C.ink });
     // queue snaking to the right into the distance
     for (let i = 11; i >= 0; i--) {
-      const depth = i / 11, s = lerp(1.1, 0.5, depth);
-      const x = lerp(400, 900, depth) + Math.sin(i * 1.3) * 30, y = lerp(1280, 1000, depth);
+      const depth = i / 11, s = lerp(0.62, 0.3, depth);
+      const x = lerp(420, 900, depth) + Math.sin(i * 1.3) * 30, y = lerp(1290, 1000, depth);
       const shuffle = Math.sin(t * 3 + i) * 3;
-      mannequin(ctx, { x: x + shuffle, y, s, face: -1, handF: i % 2 ? [10, 60] : [8, 95], handB: [30, 20], phone: i % 2 ? 'B' : null, screen: i % 2 ? C.red : null, tilt: i % 3 ? 0.25 : -0.05 });
+      const g = ['phone', 'akimbo', null, 'think', 'phone', 'shrug'][i % 6];
+      person(ctx, { x: x + shuffle, y, s, k: 40 + i, style: i + 7, gesture: g, eyes: 'normal', brows: i % 2 ? 'worried' : 'determined', mouth: ['flat', 'wavy', 'flat', 'smirk'][i % 4], look: g === 'phone' ? 0.3 : -0.8, lookY: g === 'phone' ? 0.7 : 0, glow: g === 'phone' ? C.red : null });
     }
     sceneChip(ctx, t, 'ATM: OFFLINE', C.red);
   }
@@ -434,9 +481,10 @@
     box(ctx, 120, 1080, 820, 330, 60, { top: '#7A4A55', front: '#5C3A4E', side: '#4A2E42' });
     for (let i = 0; i < 10; i++) { ctx.fillStyle = i % 2 ? '#F4EDE4' : '#E2574C'; ctx.beginPath(); ctx.moveTo(110 + i * 85, 720); ctx.lineTo(195 + i * 85, 720); ctx.lineTo(195 + i * 85, 800); ctx.quadraticCurveTo(152 + i * 85, 830, 110 + i * 85, 800); ctx.closePath(); ctx.fill(); }
     rr(ctx, 360, 740, 340, 56, 12); ctx.fillStyle = '#FFF4E0'; ctx.fill();
-    txt(ctx, 'WARUNG BU SRI', 530, 782, { size: 34, align: 'center', color: '#5C3A4E' });
+    txt(ctx, 'WARUNG', 530, 782, { size: 34, align: 'center', color: '#5C3A4E' });
     // owner behind the counter
-    mannequin(ctx, { x: 560, y: 1050, s: 0.95, face: -1, handF: [30, 40], handB: [20, 80], tilt: Math.sin(t * 2) * 0.08 });
+    const laughing = S.bubbles.some((bt, i) => (i === 1 || i === 6) && t >= bt && t < bt + 1.2);
+    person(ctx, { x: 470, y: 1110, s: 0.62, k: 5, style: 'ibu', eyes: laughing ? 'happy' : 'normal', mouth: laughing ? 'open' : 'smile', brows: 'neutral', look: Math.sin(t * 0.9) * 0.6, headRot: Math.sin(t * 2) * 0.04, blush: laughing ? 0.6 : 0.2 });
     box(ctx, 160, 1110, 740, 120, 50, { top: '#C98A5A', front: '#A86E48', side: '#8A5A3C' });
     // radio on the counter, waves on the beat once it's on
     const radioOn = t >= T(15, 3) - 0.3;
@@ -446,8 +494,10 @@
     if (radioOn) for (let i = 0; i < 3; i++) { const u = (clock.phase(t) + i / 3) % 1; ctx.strokeStyle = `rgba(255,181,71,${0.8 * (1 - u)})`; ctx.lineWidth = 6; ctx.beginPath(); ctx.arc(785, 920, 40 + u * 90, -Math.PI * 0.85, -Math.PI * 0.15); ctx.stroke(); }
     // bench + two neighbours chatting
     box(ctx, 140, 1300, 520, 26, 60, { top: '#8A5A3C', front: '#6B4630', side: '#5A3A28' });
-    mannequin(ctx, { x: 250, y: 1262, s: 1.05, pose: 'sit', face: 1, handF: [70, 20], handB: [40, 60], tilt: 0.1 + Math.sin(t * 3) * 0.06 });
-    mannequin(ctx, { x: 560, y: 1262, s: 1.05, pose: 'sit', face: -1, handF: [60, -20 + Math.sin(t * 6) * 10], handB: [40, 60], tilt: -0.08 });
+    const talk = (who) => S.bubbles.some((bt, i) => i % 2 === who && t >= bt && t < bt + 0.9);
+    const lA = talk(0), lB = talk(1);
+    person(ctx, { x: 270, y: 1268, s: 0.62, k: 6, pose: 'sit', style: 'bapak', look: 0.9, eyes: lB ? 'happy' : 'normal', mouth: lA ? (Math.sin(t * 18) > 0 ? 'open' : 'smile') : 'smile', brows: lA ? 'up' : 'neutral', gesture: lA ? 'shrug' : null, headRot: 0.06 });
+    person(ctx, { x: 540, y: 1268, s: 0.62, k: 7, pose: 'sit', style: 'driver', look: -0.9, eyes: lA ? 'happy' : 'normal', mouth: lB ? (Math.sin(t * 18) > 0 ? 'open' : 'grin') : 'smile', brows: 'neutral', gesture: lB ? 'clap' : null, headRot: -0.06 });
     // speech bubbles
     const words = ['beneran mati?', 'wkwk', 'sama!', 'kok bisa?', 'ngopi dulu', 'nyalain radio!', 'haha'];
     S.bubbles.forEach((bt, i) => {
@@ -487,8 +537,8 @@
       rr(ctx, 690, 740, 260, 64, 10); ctx.fillStyle = '#2FB36B'; ctx.fill();
       txt(ctx, 'JL. MERDEKA', 820, 784, { size: 32, align: 'center', color: '#FFFFFF' });
       const pointT = T(18, 2), p = clamp((t - pointT + 0.2) / 0.3);
-      mannequin(ctx, { x: 300, y: 1260, s: 1.45, face: 1, handF: [50, -30 + Math.sin(t * 5) * 8], handB: [10, 92], tilt: 0.18 });
-      mannequin(ctx, { x: 620, y: 1260, s: 1.45, face: -1, handF: [10, 92], handB: [lerp(-6, -112, p), lerp(96, -6, p)], tilt: lerp(-0.05, 0.2, p) });
+      person(ctx, { x: 300, y: 1280, s: 0.82, k: 8, style: 'rafi', gesture: p > 0.5 ? 'thumbsUp' : 'think', eyes: p > 0.5 ? 'happy' : 'normal', brows: p > 0.5 ? 'neutral' : 'worried', mouth: p > 0.5 ? 'grin' : 'wavy', look: 0.9 });
+      person(ctx, { x: 620, y: 1280, s: 0.82, k: 9, style: 'bapak', gesture: p > 0.5 ? 'point' : null, eyes: 'normal', brows: 'up', mouth: p > 0.5 ? 'open' : 'smile', look: p > 0.5 ? 1 : -0.9 });
       if (t >= pointT) {
         const u = clamp((t - pointT) / 0.8);
         ctx.save(); ctx.strokeStyle = C.amber; ctx.lineWidth = 12; ctx.lineCap = 'round'; ctx.setLineDash([26, 22]); ctx.lineDashOffset = -t * 60;
@@ -501,11 +551,13 @@
 
   function crowd(ctx, t, lit) {
     for (let r = 3; r >= 0; r--) for (let i = 0; i < 6; i++) {
-      const s = lerp(1.0, 0.55, r / 3), y = lerp(1300, 1010, r / 3);
+      const s = lerp(0.52, 0.3, r / 3), y = lerp(1320, 1010, r / 3);
       const x = 90 + i * 165 + (r % 2) * 80 + (hsh(r, i) - 0.5) * 30;
       if (x > W - 40) continue;
       const buzz = lit ? Math.sin(t * 90 + i + r) * 3 * Math.exp(-((t - ev.online) % BEAT) * 4) : 0;
-      mannequin(ctx, { x: x + buzz, y, s, face: (i + r) % 2 ? 1 : -1, handF: [26, 36], handB: [18, 70], phone: 'F', screen: lit ? '#9EE6FF' : null, tilt: lit ? -0.05 : 0.3, alpha: lerp(0.65, 1, 1 - r / 3) });
+      const n = r * 6 + i;
+      const face = lit ? { eyes: 'wide', brows: 'up', mouth: ['open', 'grin', 'o'][n % 3], lookY: 0.6 } : { eyes: 'normal', brows: 'worried', mouth: 'flat', lookY: 0.9 };
+      person(ctx, Object.assign({ x: x + buzz, y, s, k: 60 + n, style: n + 3, gesture: lit && n % 5 === 0 ? 'cheer' : 'phone', look: 0.3, glow: lit ? '#9EE6FF' : null, alpha: lerp(0.7, 1, 1 - r / 3) }, face));
     }
   }
   function tunggu(ctx, t) {
@@ -575,8 +627,9 @@
   function posting(ctx, t) {
     room(ctx, t, { horizon: 1080 });
     const s0 = S.S.posting[0];
-    // a mannequin sits in the dark, phone up, typing
-    mannequin(ctx, { x: 540, y: 1250, s: 1.25, pose: 'sit', face: 1, handF: [40, 10], handB: [70, 16], phone: 'F', screen: '#9EE6FF', tilt: 0.25 });
+    // he sits on a stool in the dark, phone up, typing with a grin
+    box(ctx, 470, 1340, 140, 60, 50, { top: '#2C3F6E', front: '#1E2E55', side: '#16244A' });
+    person(ctx, { x: 540, y: 1282, s: 0.72, k: 10, pose: 'sit', style: 'rafi', gesture: 'phone', eyes: t >= ev.postTap ? 'happy' : 'normal', brows: 'neutral', mouth: t >= ev.postTap ? 'grin' : 'smirk', look: 0.3, lookY: 0.8, glow: '#9EE6FF' });
     const a = pop(t, s0 + 0.1, 0.35);
     ctx.save(); ctx.translate(CX, 760); ctx.scale(a, a); ctx.translate(-CX, -760);
     postCard(ctx, t, SA.x + 10, 590, SA.w - 20, 1);

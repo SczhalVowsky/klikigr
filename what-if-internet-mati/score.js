@@ -132,7 +132,7 @@
   const replies = [
     { t: ev.postTap + 0.5, who: 'rina.bdg', text: 'iyaa aku kira kuota habis' },
     { t: ev.postTap + 1.0, who: 'bang_ojol', text: 'seharian narik offline wkwk' },
-    { t: ev.postTap + 1.5, who: 'warung_bu_sri', text: 'warung saya rame banget kemarin' },
+    { t: ev.postTap + 1.5, who: 'warung.pojok', text: 'warung saya rame banget kemarin' },
   ];
   // restart-router counter in the wifi scene: one restart per beat after the first bar
   const restarts = [];
