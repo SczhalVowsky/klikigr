@@ -305,7 +305,7 @@
       chip(ctx, SA.x + SA.w, SA.y + 70, 'KAMU: ±6 km/jam', { color: C.green, dot: false, size: 26 });
       chip(ctx, SA.x + SA.w, SA.y + 134, 'ORANG BIASA: ±200 km/jam', { color: C.red, dot: false, size: 22 });
     } else sceneChip(ctx, t, 'LANTAI 10', C.amber);
-    if (landed) badge(ctx, t, ev.land + 0.15, 'SELAMAT ✓', 'kecepatan jatuh maks. setara orang jalan kaki', C.green, SA.y + 260);
+    if (landed) badge(ctx, t, ev.land + 0.45, 'SELAMAT ✓', 'kecepatan jatuh maks. setara orang jalan kaki', C.green, SA.y + 260);
   }
   function kuatScene(ctx, t) {
     macroFloor(ctx, t);
@@ -454,11 +454,13 @@
     draw(ctx, t) {
       const sc = SCENES.find(([k]) => inS(t, S.S[k])) || SCENES[SCENES.length - 1];
       let shake = 0;
-      for (const h of [ev.shrink, ev.lift, ev.splash, ev.blup, ev.card2, ev.cta]) if (t >= h) shake = Math.max(shake, 16 * Math.exp(-(t - h) * 9));
+      for (const h of [ev.shrink, ev.land, ev.lift, ev.splash, ev.blup, ev.card2, ev.cta]) if (t >= h) shake = Math.max(shake, 16 * Math.exp(-(t - h) * 9));
       ctx.save(); ctx.translate(U.noise1(t * 40, 1) * shake, U.noise1(t * 40, 2) * shake);
       sc[1](ctx, t);
       ctx.restore();
       if (!NO_HUD.has(sc[0]) && sc[0] !== 'twist') hud(ctx, t);
+      // impact flashes on the landing and the blup, so the hit reads on the exact frame
+      for (const [h, col] of [[ev.land, '255,255,255'], [ev.blup, '200,235,255']]) if (t >= h && t < h + 0.15) { ctx.fillStyle = `rgba(${col},${0.55 * (1 - (t - h) / 0.15)})`; ctx.fillRect(0, 0, W, H); }
       if (sc[0] !== 'sumber') captions(ctx, t);
     },
     post: { paper: 0, vignette: 0.3, grain: 0.03 },

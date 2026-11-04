@@ -47,8 +47,9 @@ clock.eachStep(2, 30, 8, (t, b, s) => {
   const R = c.bass + 12;
   if (z === 'play' || z === 'cta') { if (s === 0 || s === 3 || s === 4 || s === 6) bass.addMono(I.bass(s === 6 ? R + 7 : R, BEAT * 0.45, { bright: 0.35 }), t, 0.5); }
   else if (z === 'rain') { if (s === 0 || s === 4) bass.addMono(I.bass(R, BEAT * 1.6, { sub: 1, bright: 0.1 }), t, 0.45); }
-  else if (z === 'twist') { if (s === 0) bass.addMono(I.bass(R, BEAT * 3.5, { sub: 1, bright: 0.1 }), t, 0.45); }
+  else if (z === 'twist') { if (s === 0 && b !== 25) bass.addMono(I.bass(R, BEAT * 3.5, { sub: 1, bright: 0.1 }), t, 0.45); }
 });
+bass.addMono(I.bass(sc.chordAt(S.twist[0]).bass + 12, BEAT * 1.8, { sub: 1, bright: 0.1 }), S.twist[0], 0.45); // the twist starts on its own cut
 // ---------- pads ----------
 for (const c of sc.chords) {
   const z = zone(c.bar);
@@ -94,6 +95,8 @@ for (let i = 0; i < 6; i++) fx.addMono(I.pop(700 + i * 160), ev.blup + 0.4 + i *
 fx.addMono(I.ting(86), ev.card1, 0.35); drums.addMono(K, ev.card1, 0.6);
 fx.addMono(I.thud(60, 0.14), ev.card2, 0.9); drums.addMono(SN, ev.card2, 0.4); fx.addMono(I.pulse(m('D3'), 0.25, { duty: 0.5 }), ev.card2 + 0.02, 0.2);
 fx.addMono(I.thud(70, 0.12), ev.cta, 0.6); drums.addMono(CR, ev.cta, 0.25);
+fx.addMono(I.thud(80, 0.12), S.twist[0], 0.7);
+fx.addMono(I.tvClick(), ev.sumber, 0.6); drums.addMono(K, ev.sumber, 0.7); fx.addMono(I.thud(90, 0.1), ev.sumber, 0.5);
 for (const [n, i] of [['C6', 0], ['E6', 1], ['G6', 2], ['E6', 3], ['C6', 4]]) { const x = I.musicBox(m(n)); keys.addMono(x, ev.sumber + 0.5 + i * BEAT / 2, 0.14); verb.addMono(x, ev.sumber + 0.5 + i * BEAT / 2, 0.14); }
 
 // ---------- mix ----------
